@@ -2,7 +2,7 @@
 
 ## Load data
 
-```{r load_reads, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_reads, warning=FALSE, comments="", message=FALSE}
 read_counts <- read_tsv(
   "data/gene_counts.tsv.xz",
   comment = "#",          # skip featureCounts metadata
@@ -15,11 +15,11 @@ head(read_counts) %>%
   tt()
 ```
 
-```{r load_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_annotations, warning=FALSE, comments="", message=FALSE}
 gene_annotations <- read_tsv("data/gene_annotations.tsv.xz") %>%
     rename(gene=1)
 
-head(read_counts) %>% 
+head(gene_annotations) %>% 
   tt()
 ```
 
