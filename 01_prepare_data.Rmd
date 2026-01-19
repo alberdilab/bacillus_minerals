@@ -1,0 +1,28 @@
+# Prepare data
+
+## Load data
+
+```{r load_reads, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts <- read_tsv(
+  "data/gene_counts.tsv.xz",
+  comment = "#",          # skip featureCounts metadata
+  col_names = TRUE,       # header is present
+  show_col_types = FALSE  # silence messages
+) %>%
+  rename(gene = Geneid)
+
+head(read_counts) %>% 
+  tt()
+```
+
+```{r load_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+gene_annotations <- read_tsv("data/gene_annotations.tsv.xz") %>%
+    rename(gene=1)
+
+head(read_counts) %>% 
+  tt()
+```
+
+```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata <- read_csv("data/sample_metadata.csv") 
+```
