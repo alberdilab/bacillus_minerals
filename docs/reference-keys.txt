@@ -3,4 +3,8 @@ prepare-the-r-environment
 environment
 libraries
 prepare-data
+bioinformatics
+get-data
+run-annotation-and-profiling
+get-working-files
 load-data

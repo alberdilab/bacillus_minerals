@@ -1,5 +1,31 @@
 # Prepare data
 
+## Bioinformatics
+
+### Get data
+
+```{sh get_genome, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+mkdir genome
+wget -P genome https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/009/045/GCF_000009045.1_ASM904v1/GCF_000009045.1_ASM904v1_genomic.fna.gz
+```
+
+```{sh get_reads, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+mkdir reads
+# fetch data from ERDA
+```
+
+### Run annotation and profiling
+
+```{sh run_annotation, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+drakkar annotating -b genome
+drakkar expressing -b genome -r reads
+```
+
+### Get working files
+
+- gene_annotations.tsv.xz
+- gene_counts.tsv.xz
+
 ## Load data
 
 ```{r load_reads, warning=FALSE, comments="", message=FALSE}
