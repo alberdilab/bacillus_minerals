@@ -35,20 +35,42 @@ read_counts <- read_tsv(
   col_names = TRUE,       # header is present
   show_col_types = FALSE  # silence messages
 ) %>%
-  rename(gene = Geneid)
+  rename(gene = Geneid) %>% 
+  pivot_longer(!c(gene,Chr,Start,End,Strand,Length),names_to="library",values_to = "counts") %>% 
+  mutate(sample = str_extract(library, "^[^_]+")) %>% 
+  group_by(gene,Chr,Start,End,Strand,Length,sample) %>% 
+  summarise(counts=sum(counts)) %>% 
+  pivot_wider(c(gene,Chr,Start,End,Strand,Length), names_from = "sample", values_from = "counts") 
 
-head(read_counts) %>% 
-  tt()
 ```
 
 ```{r load_annotations, warning=FALSE, comments="", message=FALSE}
 gene_annotations <- read_tsv("data/gene_annotations.tsv.xz") %>%
     rename(gene=1)
-
-head(gene_annotations) %>% 
-  tt()
 ```
 
 ```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 sample_metadata <- read_csv("data/sample_metadata.csv") 
 ```
+
+## Preliminary visualisations
+
+```{r seqdepth_overview, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts %>% 
+  pivot_longer(!c(gene,Chr,Start,End,Strand,Length),names_to="sample",values_to = "counts") %>% 
+  group_by(sample) %>% 
+  summarise(counts=sum(counts)) %>% 
+  ggplot(aes(x=sample,y=counts)) +
+    geom_bar(stat="identity")
+```
+
+```{r kegg_overview, warning=FALSE, comments="", message=FALSE}
+inner_join(read_counts,gene_annotations %>% select(gene,kegg),by="gene") %>% 
+  pivot_longer(!c(gene,Chr,Start,End,Strand,Length,kegg),names_to="sample",values_to = "counts") %>% 
+  group_by(sample,kegg) %>% 
+  summarise(counts=sum(counts)) %>% 
+  ggplot(aes(x=sample,y=kegg,fill=log(counts))) +
+    geom_tile()
+```
+
+Dwfssdf semgf sdgm
