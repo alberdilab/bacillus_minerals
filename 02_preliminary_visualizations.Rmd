@@ -1,0 +1,374 @@
+# Preliminary visualizations
+
+## Filtering and normalization
+
+```{r filtering_norm, warning=FALSE, comments="", message=FALSE}
+# Create edgeR DGEList
+dge <- DGEList(counts = read_counts)
+
+# Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
+keep <- rowSums(cpm(dge) > 1) >= 2
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# Normalize for library size (TMM normalization)
+dge <- calcNormFactors(dge)
+
+# Log2 CPM transformation
+logCPM <- cpm(dge, log = TRUE, prior.count = 1)  # log2(CPM + 1)
+
+```
+
+## Preliminary visualizations
+
+### Library size plot
+
+In this plot we see a fold difference of 3-4X between the samples with the lowest number of reads and the samples with the highest number of reads. Most of the difference is between the 3 h samples (higher expression, exponential growth curve) and 24 h samples (lower expression, stationary phase). At 24 h DREX protocol seems yield more RNA than most of Zymo samples. Goethite samples at 3 h -(except DREX sample) have less reads than the rest of 3 h samples, which agrees with the concentrations calculated with Qubit. We expect some cell death in goethite at 3 h.
+
+```{r libraries_barplot, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
+# Total reads per sample (wihtout filtering and normalizing)
+lib_sizes <- colSums(read_counts)
+
+par(mgp = c(3.4, 1, 0))
+
+barplot(lib_sizes,
+        las = 2,
+        cex.axis = 0.7,
+        ylab = "Total reads",
+        main = "Library sizes per sample")
+
+```
+
+
+### Box plots of transformed counts
+
+Most of the samples processed with DREX protocol show narrower distributions (reads are more evenly distributed across genes), is this good or bad?
+
+```{r boxplot_transformed, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
+
+boxplot(logCPM,
+        las = 2,
+        outline = FALSE,
+        ylab = "log2 CPM",
+        main = "Distribution of log2-CPM per sample")
+```
+
+
+### Hierarchical clustering
+
+The clustering separates each mineral sample quite good at 3 h, but not that good at 24 h (except for goethite)
+
+```{r hierarchical_clustering, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
+
+distance_mat <- as.dist(1 - cor(logCPM))  # Pearson correlation distance
+hclust_res <- hclust(distance_mat)
+plot(hclust_res, labels = colnames(logCPM), main = "Hierarchical Clustering (log2 CPM)")
+```
+
+
+### Sample-sample distance heatmap
+
+Distance calculation is the same as the previous one but here with all the metadata and pairwise distances visible
+```{r sample-sample_distance_heatmap, fig.width=12, fig.height=12, message=FALSE, warning=FALSE}
+
+heatmap_metadata <- sample_metadata %>%
+  dplyr::select(`Qubit conc ng/uL`, Extraction, timepoint, mineral_code)
+
+sample_dist <- as.dist(1 - cor(logCPM, method = "pearson"))
+
+pheatmap(as.matrix(sample_dist),
+         annotation_col = heatmap_metadata,
+         main = "Sample–sample distance heatmap")
+```
+
+
+### PCA
+In the PCA there are some interesting observations:
+
+- The first PC explains most of the variance in the samples and it clearly separates the samples at 3 h and 24 h for all the minerals and RNA extraction protocols.
+
+-PC2 captures some of the variance between samples processed with DREX at 24 h. It seems for samples at 3 h the extraction protocol did not have that effect.
+
+-PC2 and especially PC3 caputres some of the variance that differentiates the goethite samples at 3 h (maybe stress response?)
+
+
+```{r pca, fig.width=7, fig.height=5, message=FALSE, warning=FALSE}
+
+pca_res <- prcomp(t(logCPM))  # samples as rows
+pca_scores <- as.data.frame(pca_res$x) %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_metadata <- sample_metadata %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_df <- pca_scores %>%
+  dplyr::left_join(pca_metadata, by = "sample_pca")
+
+
+# Calculate percent of variance explained
+# Variance explained per PC
+pca_var <- pca_res$sdev^2
+pca_var_frac <- pca_var / sum(pca_var)
+
+# Percent variance explained
+pca_var_pct <- round(100 * pca_var_frac, 1)
+
+
+ggplot(pca_df, aes(x = PC1, y = PC2,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC2 (", pca_var_pct[2], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC1, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC2, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC2 (", pca_var_pct[2], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+```
+```{r pca_var, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+pca_var_df <- data.frame(
+  PC = factor(paste0("PC", seq_along(pca_var_pct)),
+              levels = paste0("PC", seq_along(pca_var_pct))),
+  variance = pca_var_pct
+)
+
+ggplot(pca_var_df[1:15, ], aes(x = PC, y = variance)) +
+  geom_col(fill = "steelblue") +
+  geom_line(aes(group = 1)) +
+  geom_point() +
+  theme_bw() +
+  labs(
+    title = "Variance explained by principal components",
+    y = "Variance explained (%)",
+    x = ""
+  )
+
+
+pca_var_df$cumulative <- cumsum(pca_var_df$variance)
+
+ggplot(pca_var_df[1:20, ], aes(x = PC, y = cumulative)) +
+  geom_line(group = 1) +
+  geom_point() +
+  theme_bw() +
+  labs(
+    title = "Cumulative variance explained",
+    y = "Cumulative variance (%)",
+    x = ""
+  )
+
+```
+
+
+
+
+
+## Preliminary visualizations wo DREX group
+
+We plot some of the same visualizations after removing the DREX samples.
+
+
+### Filtering DREX group, filtering and normalization
+
+```{r filtering_norm_wo_drex, warning=FALSE, comments="", message=FALSE}
+# Filter out samples processed using DREX protocol
+read_counts_f <- read_counts %>%
+  dplyr::select(-ends_with("D"))
+
+# Create edgeR DGEList
+dge <- DGEList(counts = read_counts_f)
+
+# Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
+keep <- rowSums(cpm(dge) > 1) >= 2
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# Normalize for library size (TMM normalization)
+dge <- calcNormFactors(dge)
+
+# Log2 CPM transformation
+logCPM <- cpm(dge, log = TRUE, prior.count = 1)  # log2(CPM + 1)
+
+```
+
+### Hierarchical clustering
+
+```{r hierarchical_clustering_wo_drex, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
+
+distance_mat <- as.dist(1 - cor(logCPM))  # Pearson correlation distance
+hclust_res <- hclust(distance_mat)
+plot(hclust_res, labels = colnames(logCPM), main = "Hierarchical Clustering (log2 CPM)")
+```
+
+### Sample-sample distance heatmap
+
+
+```{r sample-sample_distance_heatmap_wo_drex, fig.width=12, fig.height=12, message=FALSE, warning=FALSE}
+
+heatmap_metadata <- sample_metadata %>%
+  dplyr::select(`Qubit conc ng/uL`, Extraction, timepoint, mineral_code)
+
+sample_dist <- as.dist(1 - cor(logCPM, method = "pearson"))
+
+pheatmap(as.matrix(sample_dist),
+         annotation_col = heatmap_metadata,
+         main = "Sample–sample distance heatmap")
+```
+
+
+### PCA
+
+Observations after removing the DREX samples:
+
+- PC1 keeps capturing the variance related to the timepoint of sample collection.
+
+- PC2 clearly separates the goetihte smaples at 3 h and a little bit at 24 h, some of the expression pattern in goethite is quite different at the beginning and the difference start fading after 24 h.
+
+- PC3 separates the goethite samples at 24 h but not at 3 h.
+
+- PC4 separates the controls at 24 h
+
+```{r pca_wo_drex, fig.width=7, fig.height=5, message=FALSE, warning=FALSE}
+
+pca_res <- prcomp(t(logCPM))  # samples as rows
+pca_scores <- as.data.frame(pca_res$x) %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_metadata <- sample_metadata %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_df <- pca_scores %>%
+  dplyr::left_join(pca_metadata, by = "sample_pca")
+
+
+# Calculate percent of variance explained
+# Variance explained per PC
+pca_var <- pca_res$sdev^2
+pca_var_frac <- pca_var / sum(pca_var)
+
+# Percent variance explained
+pca_var_pct <- round(100 * pca_var_frac, 1)
+
+
+ggplot(pca_df, aes(x = PC1, y = PC2,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC2 (", pca_var_pct[2], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC1, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC2, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC2 (", pca_var_pct[2], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+ggplot(pca_df, aes(x = PC3, y = PC4,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC3 (", pca_var_pct[3], "%)"),
+    y = paste0("PC4 (", pca_var_pct[4], "%)")
+  )
+```
+
+```{r pca_var_wo_drex, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+pca_var_df <- data.frame(
+  PC = factor(paste0("PC", seq_along(pca_var_pct)),
+              levels = paste0("PC", seq_along(pca_var_pct))),
+  variance = pca_var_pct
+)
+
+ggplot(pca_var_df[1:15, ], aes(x = PC, y = variance)) +
+  geom_col(fill = "steelblue") +
+  geom_line(aes(group = 1)) +
+  geom_point() +
+  theme_bw() +
+  labs(
+    title = "Variance explained by principal components",
+    y = "Variance explained (%)",
+    x = ""
+  )
+
+
+pca_var_df$cumulative <- cumsum(pca_var_df$variance)
+
+ggplot(pca_var_df[1:20, ], aes(x = PC, y = cumulative)) +
+  geom_line(group = 1) +
+  geom_point() +
+  theme_bw() +
+  labs(
+    title = "Cumulative variance explained",
+    y = "Cumulative variance (%)",
+    x = ""
+  )
+
+```
+
+
+
+### Next ideas
+
+- Look at PCAs for timepoints separately (or removing goethite samples)
+
+- Repeat some visualizatios using kegg and pfam groups
+
+- Repeat some visualizations selecting only the most variable genes
+
+
