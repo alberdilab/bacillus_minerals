@@ -21,12 +21,23 @@ drakkar annotating -b genome
 drakkar expressing -b genome -r reads
 ```
 
+### Experimental design
+
+This project consists of 40 RNAseq samples. Twenty samples were collected at 3 h and the remaining 20 at 24 h. The experiment includes one control group (C) and three treatment groups, in which bacteria were exposed to 5 mg/mL of the following minerals: goethite (G), hematite (H) and mica (M). 
+
+Each condition includes 4 biological replicates for which RNA was extracted using the [ZymoBIOMICS RNA Kit](https://zymoresearch.eu/products/zymobiomics-rna-miniprep-kit?srsltid=AfmBOop0gFSEZIxc0EIYXblZ3PRZIOI1UsrI-na74bpEhqRX3qm2ma1p), and one replicate for which RNA was extracted using the DREX protocol.
+
+![Experimental design](figures/experimental_setup.png)
+
 ### Get working files
 
 - gene_annotations.tsv.xz
 - gene_counts.tsv.xz
 
 ## Load data
+
+Samples have been split in different lanes during sequencing so gene_counts.tsv.xz has more columns that what is expected for the conditions of the experiments (40 different samples). 
+
 
 ```{r load_reads, warning=FALSE, comments="", message=FALSE}
 read_counts <- read_tsv(
@@ -35,7 +46,7 @@ read_counts <- read_tsv(
   col_names = TRUE,       # header is present
   show_col_types = FALSE  # silence messages
 ) %>%
-  rename(gene = Geneid) %>% 
+  dplyr::rename(gene = Geneid) %>% 
   pivot_longer(!c(gene,Chr,Start,End,Strand,Length),names_to="library",values_to = "counts") %>% 
   mutate(sample = str_extract(library, "^[^_]+")) %>% 
   group_by(gene,Chr,Start,End,Strand,Length,sample) %>% 
@@ -46,31 +57,46 @@ read_counts <- read_tsv(
 
 ```{r load_annotations, warning=FALSE, comments="", message=FALSE}
 gene_annotations <- read_tsv("data/gene_annotations.tsv.xz") %>%
-    rename(gene=1)
+    dplyr::rename(gene=1)
 ```
 
-```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-sample_metadata <- read_csv("data/sample_metadata.csv") 
+```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE}
+sample_metadata <- read_csv("data/sample_metadata.csv")
+
+sample_metadata <- sample_metadata %>%
+  mutate(timepoint = str_extract(`Sample ID`, "\\d+$"),
+         mineral_code = substr(`Sample ID`, 3, 3))
 ```
 
-## Preliminary visualisations
 
-```{r seqdepth_overview, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-read_counts %>% 
-  pivot_longer(!c(gene,Chr,Start,End,Strand,Length),names_to="sample",values_to = "counts") %>% 
-  group_by(sample) %>% 
-  summarise(counts=sum(counts)) %>% 
-  ggplot(aes(x=sample,y=counts)) +
-    geom_bar(stat="identity")
+
+## Prepare data
+
+Preliminary processing of the data to prepare it for visualizations
+
+```{r prepare_counts, warning=FALSE, comments="", message=FALSE}
+read_counts <- read_counts %>% 
+  pivot_longer(!c(gene,Chr,Start,End,Strand,Length),names_to="sample",values_to = "counts") %>%
+  inner_join(sample_metadata, by="sample") %>%
+  mutate(ID = paste(`Sample ID`, str_sub(Extraction, 1, 1), sep = "_")) %>%
+  dplyr::select(gene, ID, counts) %>%
+  pivot_wider(c(gene), names_from = "ID", values_from = "counts") %>%
+  column_to_rownames(var = "gene")
+ 
+
 ```
 
-```{r kegg_overview, warning=FALSE, comments="", message=FALSE}
-inner_join(read_counts,gene_annotations %>% select(gene,kegg),by="gene") %>% 
-  pivot_longer(!c(gene,Chr,Start,End,Strand,Length,kegg),names_to="sample",values_to = "counts") %>% 
-  group_by(sample,kegg) %>% 
-  summarise(counts=sum(counts)) %>% 
-  ggplot(aes(x=sample,y=kegg,fill=log(counts))) +
-    geom_tile()
+
+```{r prepare_metadata, warning=FALSE, comments="", message=FALSE}
+sample_metadata <- sample_metadata %>%
+  mutate(ID = paste(`Sample ID`, str_sub(Extraction, 1, 1), sep = "_")) %>%
+  column_to_rownames(var = "ID")
+ 
+
 ```
 
-Dwfssdf semgf sdgm
+
+
+
+
+

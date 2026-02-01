@@ -43,6 +43,26 @@ Once the R project has been created, follow the instructions and code chunks sho
 
 ### Libraries
 
+Install this packages if needed
+
+```{r install_packages, eval=FALSE}
+## Bioconductor packages
+#https://cran.r-project.org/web/packages/BiocManager/vignettes/BiocManager.html
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+requiredPackages = c('edgeR','DESeq2','vsn','org.Hs.eg.db', "knitr")
+for (p in requiredPackages) {
+  if(p %in% rownames(installed.packages()) == FALSE) {BiocManager::install(p)}
+}
+
+## CRAN packages
+requiredPackages = c('ggplot2','dplyr','NMF','grDevices', "hexbin", "statmod", "reshape2")
+for (p in requiredPackages) {
+  if(p %in% rownames(installed.packages()) == FALSE) {install.packages(p)}
+}
+```
+
 The following R packages are required for the data analysis.
 
 ```{r load_libraries, warning=FALSE, comments="", message=FALSE}
@@ -55,4 +75,19 @@ library(tinytable)
 library(rairtable)
 library(janitor)
 library(broom)
+library(ggtext)
+library(tibble)
+library(stringr)
+library(dplyr)
+library(DESeq2)
+library(edgeR)
+library(ggplot2)
+library(vsn)
+library(NMF)
+library(org.Hs.eg.db)
+library(grDevices)
+library(hexbin)
+library(statmod)
+library(reshape2)
+library(pheatmap)
 ```
