@@ -18,9 +18,14 @@ box-plots-of-transformed-counts
 hierarchical-clustering
 sample-sample-distance-heatmap
 pca
+permanova-and-dispersion-test
 preliminary-visualizations-wo-drex-group
 filtering-drex-group-filtering-and-normalization
 hierarchical-clustering-1
 sample-sample-distance-heatmap-1
 pca-1
+permanova-and-dispersion-test-1
+other-pcas
+samples-at-3h
+samples-at-24h
 next-ideas

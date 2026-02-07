@@ -2079,6 +2079,7 @@ color: #a52929;
 <li class="chapter" data-level="3.2.3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#hierarchical-clustering"><i class="fa fa-check"></i><b>3.2.3</b> Hierarchical clustering</a></li>
 <li class="chapter" data-level="3.2.4" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#sample-sample-distance-heatmap"><i class="fa fa-check"></i><b>3.2.4</b> Sample-sample distance heatmap</a></li>
 <li class="chapter" data-level="3.2.5" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#pca"><i class="fa fa-check"></i><b>3.2.5</b> PCA</a></li>
+<li class="chapter" data-level="3.2.6" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#permanova-and-dispersion-test"><i class="fa fa-check"></i><b>3.2.6</b> PERMANOVA and dispersion test</a></li>
 </ul></li>
 <li class="chapter" data-level="3.3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#preliminary-visualizations-wo-drex-group"><i class="fa fa-check"></i><b>3.3</b> Preliminary visualizations wo DREX group</a>
 <ul>
@@ -2086,7 +2087,13 @@ color: #a52929;
 <li class="chapter" data-level="3.3.2" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#hierarchical-clustering-1"><i class="fa fa-check"></i><b>3.3.2</b> Hierarchical clustering</a></li>
 <li class="chapter" data-level="3.3.3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#sample-sample-distance-heatmap-1"><i class="fa fa-check"></i><b>3.3.3</b> Sample-sample distance heatmap</a></li>
 <li class="chapter" data-level="3.3.4" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#pca-1"><i class="fa fa-check"></i><b>3.3.4</b> PCA</a></li>
-<li class="chapter" data-level="3.3.5" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#next-ideas"><i class="fa fa-check"></i><b>3.3.5</b> Next ideas</a></li>
+<li class="chapter" data-level="3.3.5" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#permanova-and-dispersion-test-1"><i class="fa fa-check"></i><b>3.3.5</b> PERMANOVA and dispersion test</a></li>
+</ul></li>
+<li class="chapter" data-level="3.4" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#other-pcas"><i class="fa fa-check"></i><b>3.4</b> Other PCAs</a>
+<ul>
+<li class="chapter" data-level="3.4.1" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#samples-at-3h"><i class="fa fa-check"></i><b>3.4.1</b> Samples at 3h</a></li>
+<li class="chapter" data-level="3.4.2" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#samples-at-24h"><i class="fa fa-check"></i><b>3.4.2</b> Samples at 24h</a></li>
+<li class="chapter" data-level="3.4.3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#next-ideas"><i class="fa fa-check"></i><b>3.4.3</b> Next ideas</a></li>
 </ul></li>
 </ul></li>
 <li class="divider"></li>
@@ -2115,7 +2122,7 @@ color: #a52929;
 <h1 class="title">AlberdiLab | Carbajo et al. 2026</h1>
 <h2 class="subtitle"><em>Study in progress</em></h2>
 <p class="author"><em>Carlota Carbajo, Nanna Gaun, Antton Alberdi<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, Karina Sand</em></p>
-<p class="date"><em>Last update: 2026-02-01</em></p>
+<p class="date"><em>Last update: 2026-02-08</em></p>
 </div>
 <div id="introduction" class="section level1 hasAnchor" number="1">
 <h1><span class="header-section-number">Chapter 1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
@@ -2174,7 +2181,9 @@ color: #a52929;
 <span id="cb3-21"><a href="index.html#cb3-21" tabindex="-1"></a><span class="fu">library</span>(hexbin)</span>
 <span id="cb3-22"><a href="index.html#cb3-22" tabindex="-1"></a><span class="fu">library</span>(statmod)</span>
 <span id="cb3-23"><a href="index.html#cb3-23" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span>
-<span id="cb3-24"><a href="index.html#cb3-24" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span></code></pre></div>
+<span id="cb3-24"><a href="index.html#cb3-24" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
+<span id="cb3-25"><a href="index.html#cb3-25" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb3-26"><a href="index.html#cb3-26" tabindex="-1"></a><span class="fu">library</span>(vegan)</span></code></pre></div>
 
 </div>
 </div>

@@ -90,4 +90,6 @@ library(hexbin)
 library(statmod)
 library(reshape2)
 library(pheatmap)
+library(tibble)
+library(vegan)
 ```

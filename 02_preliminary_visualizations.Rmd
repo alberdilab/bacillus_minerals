@@ -86,9 +86,9 @@ In the PCA there are some interesting observations:
 
 - The first PC explains most of the variance in the samples and it clearly separates the samples at 3 h and 24 h for all the minerals and RNA extraction protocols.
 
--PC2 captures some of the variance between samples processed with DREX at 24 h. It seems for samples at 3 h the extraction protocol did not have that effect.
+- PC2 captures some of the variance between samples processed with DREX at 24 h. It seems for samples at 3 h the extraction protocol did not have that effect.
 
--PC2 and especially PC3 caputres some of the variance that differentiates the goethite samples at 3 h (maybe stress response?)
+- PC2 and especially PC3 caputres some of the variance that differentiates the goethite samples at 3 h (maybe stress response?)
 
 
 ```{r pca, fig.width=7, fig.height=5, message=FALSE, warning=FALSE}
@@ -187,6 +187,82 @@ ggplot(pca_var_df[1:20, ], aes(x = PC, y = cumulative)) +
 ```
 
 
+### PERMANOVA and dispersion test
+
+Here we do PERMANOVA using the option "terms" that adds predictors one at a time, in order, and seeing how much extra variation each of them adds.
+
+y ~ timepoint * mineral is the same as y ~ timepoint + mineral + timepoint:mineral
+
+```{r permanova, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+# Distance matrix
+dist_mat <- as.dist(1 - cor(logCPM, method = "pearson"))
+
+# by = "terms" means adonis2 tests terms in order, like Type I sums of squares in ANOVA. The differences between terms and margin are not very important when you have balanced samples like we have here.
+# Permanova
+perm_res <- adonis2(
+  dist_mat ~ timepoint * mineral_code,
+  data = sample_metadata,
+  permutations = 999,
+  by = "terms"   
+)
+
+
+# Nice table
+perm_table <- as.data.frame(perm_res) %>%
+  rownames_to_column("term")
+
+perm_table
+```
+
+The PERMANOVA on sample–sample expression distances reveals a significant effect of the mineral (R² = 0.12, p = 0.014) and a strong timepoint × mineral interaction (R² = 0.41, p = 0.001), while the main effect of timepoint alone was not significant (R² = 0.03, p = 0.119). The timepoint not being significant means that the 3h and 24h variation is different for different minerals? They were clearly separated in the PCA. Does it mean that is important but only when accounting for the interaction (considering the R2)? Conclusion of the permanova is that it suggests mineral-associated transcriptional responses differ substantially between 3h and 24h.
+
+
+
+```{r dispersion, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+# Create combined group factor: timepoint:mineral
+sample_metadata <- sample_metadata %>%
+  mutate(group = interaction(timepoint, mineral_code, drop = TRUE))
+
+bd_group <- betadisper(dist_mat, sample_metadata$group)
+disp_group <- anova(bd_group)
+
+bd_time <- betadisper(dist_mat, sample_metadata$timepoint)
+bd_mineral <- betadisper(dist_mat, sample_metadata$mineral_code)
+
+disp_time <- anova(bd_time)
+disp_mineral <- anova(bd_mineral)
+
+
+disp_table <- bind_rows(
+  data.frame(test = "Dispersion: timepoint",
+             F = disp_time$`F value`[1],
+             p = disp_time$`Pr(>F)`[1]),
+  data.frame(test = "Dispersion: mineral",
+             F = disp_mineral$`F value`[1],
+             p = disp_mineral$`Pr(>F)`[1]),
+  data.frame(test = "Dispersion: timepoint:mineral",
+             F = disp_group$`F value`[1],
+             p = disp_group$`Pr(>F)`[1])
+) %>%
+  mutate(
+    F = round(F, 3),
+    p = signif(p, 3)
+  )
+
+disp_table
+
+final_table <- perm_table %>%
+  dplyr::select(term, Df, F, R2, `Pr(>F)`) %>%
+  dplyr::rename(p = `Pr(>F)`)
+
+final_table
+
+plot(bd_group)
+boxplot(bd_group)
+```
+The 8 timepoint*mieneral groups do NOT differ significantly in their spread, so the permanova interaction is not likely an artifact of dispersion differences. 3h and 24h have similar within group variability and minerals do not differ in dispersion either. This means that we can trust the PERMANOVA.
 
 
 
@@ -362,13 +438,305 @@ ggplot(pca_var_df[1:20, ], aes(x = PC, y = cumulative)) +
 ```
 
 
+### PERMANOVA and dispersion test
+
+```{r permanova_wo_drex, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+# Filter metadata so adonis2 is happy
+sample_metadata_f <- sample_metadata %>%
+  dplyr::filter(Extraction == "Zymo")
+
+# Create edgeR DGEList
+dge <- DGEList(counts = read_counts_f)
+
+# Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
+keep <- rowSums(cpm(dge) > 1) >= 2
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# Normalize for library size (TMM normalization)
+dge <- calcNormFactors(dge)
+
+# Log2 CPM transformation
+logCPM <- cpm(dge, log = TRUE, prior.count = 1)  # log2(CPM + 1)
+
+# Distance matrix
+dist_mat <- as.dist(1 - cor(logCPM, method = "pearson"))
+
+# by = "terms" means adonis2 tests terms in order, like Type I sums of squares in ANOVA
+# Permanova
+perm_res <- adonis2(
+  dist_mat ~ timepoint * mineral_code,
+  data = sample_metadata_f,
+  permutations = 999,
+  by = "terms"   
+)
+
+
+# Nice table
+perm_table <- as.data.frame(perm_res) %>%
+  rownames_to_column("term")
+
+perm_table
+```
+
+Here we get similar results as when including the DREX samples. The tiempoint by itself does not show an effect in the PERMANOVA (R² = 0.03, p = 0.156), we observe effect from the mineral when considering alredy timepoint in the model (R² = 0.14, p = 0.031) and again a strong timepoint × mineral interaction (R² = 0.44, p = 0.001).
+
+```{r dispersion_wo_drex, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+# Create combined group factor: timepoint:mineral
+sample_metadata_f <- sample_metadata_f %>%
+  mutate(group = interaction(timepoint, mineral_code, drop = TRUE))
+
+bd_group <- betadisper(dist_mat, sample_metadata_f$group)
+disp_group <- anova(bd_group)
+
+
+bd_time <- betadisper(dist_mat, sample_metadata_f$timepoint)
+bd_mineral <- betadisper(dist_mat, sample_metadata_f$mineral_code)
+
+disp_time <- anova(bd_time)
+disp_mineral <- anova(bd_mineral)
+
+
+disp_table <- bind_rows(
+  data.frame(test = "Dispersion: timepoint",
+             F = disp_time$`F value`[1],
+             p = disp_time$`Pr(>F)`[1]),
+  data.frame(test = "Dispersion: mineral",
+             F = disp_mineral$`F value`[1],
+             p = disp_mineral$`Pr(>F)`[1]),
+  data.frame(test = "Dispersion: timepoint:mineral",
+             F = disp_group$`F value`[1],
+             p = disp_group$`Pr(>F)`[1])
+) %>%
+  mutate(
+    F = round(F, 3),
+    p = signif(p, 3)
+  )
+
+disp_table
+
+final_table <- perm_table %>%
+  dplyr::select(term, Df, F, R2, `Pr(>F)`) %>%
+  dplyr::rename(p = `Pr(>F)`)
+
+final_table
+
+plot(bd_group)
+boxplot(bd_group)
+
+
+```
+
+Dispersion also remained being not significant and so again the PERMANOVA interaction is not likely an artifact of dispersion differences. In the boxplot we see that after removing the DREX group the variations within groups decreased a little bit.
+
+
+## Other PCAs
+
+### Samples at 3h
+
+Here we check PCAs information by subsetting the data in different groups. First we look at PCA of samples at 3h.
+
+- At 3h most of the variation separates goethite from the rest of the samples (PC1).
+
+- PC2 separates some of the minerals, but not completely. The PC3 separates the minerals quite well, especially mica and the control. It keeps goethite and hematite together. This is interesting because these two are both iron oxides and there might be some biological meaning behind this.
+
+
+```{r PCA_3h, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+# Filter out samples processed using DREX protocol
+read_counts_3h <- read_counts %>%
+  dplyr::select(-ends_with("D")) %>%
+  dplyr::select((matches("3_")))
+
+# Create edgeR DGEList
+dge <- DGEList(counts = read_counts_3h)
+
+# Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
+keep <- rowSums(cpm(dge) > 1) >= 2
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# Normalize for library size (TMM normalization)
+dge <- calcNormFactors(dge)
+
+# Log2 CPM transformation
+logCPM <- cpm(dge, log = TRUE, prior.count = 1)  # log2(CPM + 1)
+
+
+
+pca_res <- prcomp(t(logCPM))  # samples as rows
+pca_scores <- as.data.frame(pca_res$x) %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_metadata <- sample_metadata %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_df <- pca_scores %>%
+  dplyr::left_join(pca_metadata, by = "sample_pca")
+
+
+# Calculate percent of variance explained
+# Variance explained per PC
+pca_var <- pca_res$sdev^2
+pca_var_frac <- pca_var / sum(pca_var)
+
+# Percent variance explained
+pca_var_pct <- round(100 * pca_var_frac, 1)
+
+
+ggplot(pca_df, aes(x = PC1, y = PC2,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC2 (", pca_var_pct[2], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC1, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC2, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC2 (", pca_var_pct[2], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+ggplot(pca_df, aes(x = PC3, y = PC4,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC3 (", pca_var_pct[3], "%)"),
+    y = paste0("PC4 (", pca_var_pct[4], "%)")
+  )
+
+```
+
+
+### Samples at 24h
+
+Here we see again that PC1 separates the goethite samples from the rest and that has most of the variation. Here we dont get as clear samples's clusters as we did for 3h. Might suggest that 24h samples are more similar than the 3h samples.
+
+```{r PCA_24h, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
+
+# Filter out samples processed using DREX protocol
+read_counts_24h <- read_counts %>%
+  dplyr::select(-ends_with("D")) %>%
+  dplyr::select((matches("24_")))
+
+# Create edgeR DGEList
+dge <- DGEList(counts = read_counts_24h)
+
+# Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
+keep <- rowSums(cpm(dge) > 1) >= 2
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# Normalize for library size (TMM normalization)
+dge <- calcNormFactors(dge)
+
+# Log2 CPM transformation
+logCPM <- cpm(dge, log = TRUE, prior.count = 1)  # log2(CPM + 1)
+
+
+
+pca_res <- prcomp(t(logCPM))  # samples as rows
+pca_scores <- as.data.frame(pca_res$x) %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_metadata <- sample_metadata %>%
+  tibble::rownames_to_column("sample_pca")
+
+pca_df <- pca_scores %>%
+  dplyr::left_join(pca_metadata, by = "sample_pca")
+
+
+# Calculate percent of variance explained
+# Variance explained per PC
+pca_var <- pca_res$sdev^2
+pca_var_frac <- pca_var / sum(pca_var)
+
+# Percent variance explained
+pca_var_pct <- round(100 * pca_var_frac, 1)
+
+
+ggplot(pca_df, aes(x = PC1, y = PC2,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC2 (", pca_var_pct[2], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC1, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC1 (", pca_var_pct[1], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+
+ggplot(pca_df, aes(x = PC2, y = PC3,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC2 (", pca_var_pct[2], "%)"),
+    y = paste0("PC3 (", pca_var_pct[3], "%)")
+  )
+
+ggplot(pca_df, aes(x = PC3, y = PC4,
+                   color = mineral_code,
+                   shape = timepoint)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = sample_pca), vjust = -0.7, size = 3) +
+  theme_bw() +
+  labs(
+    title = "PCA of log2-CPM counts",
+    x = paste0("PC3 (", pca_var_pct[3], "%)"),
+    y = paste0("PC4 (", pca_var_pct[4], "%)")
+  )
+
+```
+
 
 ### Next ideas
 
-- Look at PCAs for timepoints separately (or removing goethite samples)
 
-- Repeat some visualizatios using kegg and pfam groups
-
-- Repeat some visualizations selecting only the most variable genes
 
 
