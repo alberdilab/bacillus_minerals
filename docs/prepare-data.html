@@ -2067,7 +2067,10 @@ color: #a52929;
 <li class="chapter" data-level="2.1.4" data-path="prepare-data.html"><a href="prepare-data.html#get-working-files"><i class="fa fa-check"></i><b>2.1.4</b> Get working files</a></li>
 </ul></li>
 <li class="chapter" data-level="2.2" data-path="prepare-data.html"><a href="prepare-data.html#load-data"><i class="fa fa-check"></i><b>2.2</b> Load data</a></li>
-<li class="chapter" data-level="2.3" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-1"><i class="fa fa-check"></i><b>2.3</b> Prepare data</a></li>
+<li class="chapter" data-level="2.3" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-1"><i class="fa fa-check"></i><b>2.3</b> Prepare data</a>
+<ul>
+<li class="chapter" data-level="2.3.1" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-subsets"><i class="fa fa-check"></i><b>2.3.1</b> Prepare data subsets</a></li>
+</ul></li>
 </ul></li>
 <li class="chapter" data-level="3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html"><i class="fa fa-check"></i><b>3</b> Preliminary visualizations</a>
 <ul>
@@ -2093,7 +2096,19 @@ color: #a52929;
 <ul>
 <li class="chapter" data-level="3.4.1" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#samples-at-3h"><i class="fa fa-check"></i><b>3.4.1</b> Samples at 3h</a></li>
 <li class="chapter" data-level="3.4.2" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#samples-at-24h"><i class="fa fa-check"></i><b>3.4.2</b> Samples at 24h</a></li>
-<li class="chapter" data-level="3.4.3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#next-ideas"><i class="fa fa-check"></i><b>3.4.3</b> Next ideas</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html"><i class="fa fa-check"></i><b>4</b> Differential expression analysis</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#data-preparation-for-de"><i class="fa fa-check"></i><b>4.1</b> Data preparation for DE</a>
+<ul>
+<li class="chapter" data-level="4.1.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#prepare-metadata"><i class="fa fa-check"></i><b>4.1.1</b> Prepare metadata</a></li>
+<li class="chapter" data-level="4.1.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#custom-plot-functions"><i class="fa fa-check"></i><b>4.1.2</b> Custom plot functions</a></li>
+</ul></li>
+<li class="chapter" data-level="4.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#differential-expression-analysis-1"><i class="fa fa-check"></i><b>4.2</b> Differential expression analysis</a>
+<ul>
+<li class="chapter" data-level="4.2.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#hours"><i class="fa fa-check"></i><b>4.2.1</b> 3 hours</a></li>
+<li class="chapter" data-level="4.2.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#hours-1"><i class="fa fa-check"></i><b>4.2.2</b> 24 hours</a></li>
 </ul></li>
 </ul></li>
 <li class="divider"></li>
@@ -2186,8 +2201,27 @@ color: #a52929;
 <span id="cb10-7"><a href="prepare-data.html#cb10-7" tabindex="-1"></a>  <span class="fu">column_to_rownames</span>(<span class="at">var =</span> <span class="st">&quot;gene&quot;</span>)</span></code></pre></div>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb11-1"><a href="prepare-data.html#cb11-1" tabindex="-1"></a>sample_metadata <span class="ot">&lt;-</span> sample_metadata <span class="sc">%&gt;%</span></span>
 <span id="cb11-2"><a href="prepare-data.html#cb11-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">ID =</span> <span class="fu">paste</span>(<span class="st">`</span><span class="at">Sample ID</span><span class="st">`</span>, <span class="fu">str_sub</span>(Extraction, <span class="dv">1</span>, <span class="dv">1</span>), <span class="at">sep =</span> <span class="st">&quot;_&quot;</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb11-3"><a href="prepare-data.html#cb11-3" tabindex="-1"></a>  <span class="fu">column_to_rownames</span>(<span class="at">var =</span> <span class="st">&quot;ID&quot;</span>)</span></code></pre></div>
+<span id="cb11-3"><a href="prepare-data.html#cb11-3" tabindex="-1"></a>  <span class="fu">column_to_rownames</span>(<span class="at">var =</span> <span class="st">&quot;ID&quot;</span>)</span>
+<span id="cb11-4"><a href="prepare-data.html#cb11-4" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="prepare-data.html#cb11-5" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="prepare-data.html#cb11-6" tabindex="-1"></a><span class="co"># Make sure order is the same as in metadata</span></span>
+<span id="cb11-7"><a href="prepare-data.html#cb11-7" tabindex="-1"></a>read_counts <span class="ot">&lt;-</span> read_counts[, <span class="fu">rownames</span>(sample_metadata)]</span></code></pre></div>
+<div id="prepare-data-subsets" class="section level3 hasAnchor" number="2.3.1">
+<h3><span class="header-section-number">2.3.1</span> Prepare data subsets<a href="prepare-data.html#prepare-data-subsets" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Subset data that will be used in the following analysis</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb12-1"><a href="prepare-data.html#cb12-1" tabindex="-1"></a><span class="co"># Filter out DREX samples</span></span>
+<span id="cb12-2"><a href="prepare-data.html#cb12-2" tabindex="-1"></a>counts_wo_drex <span class="ot">&lt;-</span> read_counts <span class="sc">%&gt;%</span></span>
+<span id="cb12-3"><a href="prepare-data.html#cb12-3" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="fu">ends_with</span>(<span class="st">&quot;D&quot;</span>))</span>
+<span id="cb12-4"><a href="prepare-data.html#cb12-4" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="prepare-data.html#cb12-5" tabindex="-1"></a>metadata_wo_drex <span class="ot">&lt;-</span> sample_metadata <span class="sc">%&gt;%</span></span>
+<span id="cb12-6"><a href="prepare-data.html#cb12-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(Extraction <span class="sc">==</span> <span class="st">&quot;Zymo&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb12-7"><a href="prepare-data.html#cb12-7" tabindex="-1"></a>  <span class="fu">droplevels</span>()</span>
+<span id="cb12-8"><a href="prepare-data.html#cb12-8" tabindex="-1"></a></span>
+<span id="cb12-9"><a href="prepare-data.html#cb12-9" tabindex="-1"></a><span class="co"># Fix the order in counts</span></span>
+<span id="cb12-10"><a href="prepare-data.html#cb12-10" tabindex="-1"></a><span class="co"># MOVE THIS TO AN EARLIER STEP IN THE WORKFLOW</span></span>
+<span id="cb12-11"><a href="prepare-data.html#cb12-11" tabindex="-1"></a><span class="co">#counts_wo_drex &lt;- counts_wo_drex[, rownames(metadata_wo_drex)]</span></span></code></pre></div>
 
+</div>
 </div>
 </div>
             </section>

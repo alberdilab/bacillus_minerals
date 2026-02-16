@@ -215,7 +215,7 @@ perm_table <- as.data.frame(perm_res) %>%
 perm_table
 ```
 
-The PERMANOVA on sample–sample expression distances reveals a significant effect of the mineral (R² = 0.12, p = 0.014) and a strong timepoint × mineral interaction (R² = 0.41, p = 0.001), while the main effect of timepoint alone was not significant (R² = 0.03, p = 0.119). The timepoint not being significant means that the 3h and 24h variation is different for different minerals? They were clearly separated in the PCA. Does it mean that is important but only when accounting for the interaction (considering the R2)? Conclusion of the permanova is that it suggests mineral-associated transcriptional responses differ substantially between 3h and 24h.
+The PERMANOVA on sample–sample expression distances reveals a significant effect of the mineral (R² = 0.12, p = 0.014) and a strong effect of timepoint × mineral interaction (R² = 0.41, p = 0.001), while the main effect of timepoint alone was not significant (R² = 0.03, p = 0.119). The timepoint not being significant means that the 3h and 24h variation is different for different minerals? They were clearly separated in the PCA. Does it mean that is important but only when accounting for the interaction (considering the R2)? Conclusion of the permanova is that it suggests mineral-associated transcriptional responses differ substantially between 3h and 24h.
 
 
 
@@ -274,12 +274,8 @@ We plot some of the same visualizations after removing the DREX samples.
 ### Filtering DREX group, filtering and normalization
 
 ```{r filtering_norm_wo_drex, warning=FALSE, comments="", message=FALSE}
-# Filter out samples processed using DREX protocol
-read_counts_f <- read_counts %>%
-  dplyr::select(-ends_with("D"))
-
 # Create edgeR DGEList
-dge <- DGEList(counts = read_counts_f)
+dge <- DGEList(counts = counts_wo_drex)
 
 # Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
 keep <- rowSums(cpm(dge) > 1) >= 2
@@ -307,7 +303,7 @@ plot(hclust_res, labels = colnames(logCPM), main = "Hierarchical Clustering (log
 
 ```{r sample-sample_distance_heatmap_wo_drex, fig.width=12, fig.height=12, message=FALSE, warning=FALSE}
 
-heatmap_metadata <- sample_metadata %>%
+heatmap_metadata <- metadata_wo_drex %>%
   dplyr::select(`Qubit conc ng/uL`, Extraction, timepoint, mineral_code)
 
 sample_dist <- as.dist(1 - cor(logCPM, method = "pearson"))
@@ -336,7 +332,7 @@ pca_res <- prcomp(t(logCPM))  # samples as rows
 pca_scores <- as.data.frame(pca_res$x) %>%
   tibble::rownames_to_column("sample_pca")
 
-pca_metadata <- sample_metadata %>%
+pca_metadata <- metadata_wo_drex %>%
   tibble::rownames_to_column("sample_pca")
 
 pca_df <- pca_scores %>%
@@ -441,12 +437,9 @@ ggplot(pca_var_df[1:20, ], aes(x = PC, y = cumulative)) +
 ### PERMANOVA and dispersion test
 
 ```{r permanova_wo_drex, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
-# Filter metadata so adonis2 is happy
-sample_metadata_f <- sample_metadata %>%
-  dplyr::filter(Extraction == "Zymo")
 
 # Create edgeR DGEList
-dge <- DGEList(counts = read_counts_f)
+dge <- DGEList(counts = counts_wo_drex)
 
 # Filter lowly expressed genes (keep genes with CPM>1 in at least 2 samples)
 keep <- rowSums(cpm(dge) > 1) >= 2
@@ -465,7 +458,7 @@ dist_mat <- as.dist(1 - cor(logCPM, method = "pearson"))
 # Permanova
 perm_res <- adonis2(
   dist_mat ~ timepoint * mineral_code,
-  data = sample_metadata_f,
+  data = metadata_wo_drex,
   permutations = 999,
   by = "terms"   
 )
@@ -483,15 +476,15 @@ Here we get similar results as when including the DREX samples. The tiempoint by
 ```{r dispersion_wo_drex, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
 
 # Create combined group factor: timepoint:mineral
-sample_metadata_f <- sample_metadata_f %>%
+metadata_wo_drex <- metadata_wo_drex %>%
   mutate(group = interaction(timepoint, mineral_code, drop = TRUE))
 
-bd_group <- betadisper(dist_mat, sample_metadata_f$group)
+bd_group <- betadisper(dist_mat, metadata_wo_drex$group)
 disp_group <- anova(bd_group)
 
 
-bd_time <- betadisper(dist_mat, sample_metadata_f$timepoint)
-bd_mineral <- betadisper(dist_mat, sample_metadata_f$mineral_code)
+bd_time <- betadisper(dist_mat, metadata_wo_drex$timepoint)
+bd_mineral <- betadisper(dist_mat, metadata_wo_drex$mineral_code)
 
 disp_time <- anova(bd_time)
 disp_mineral <- anova(bd_mineral)
@@ -543,7 +536,7 @@ Here we check PCAs information by subsetting the data in different groups. First
 
 ```{r PCA_3h, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
 
-# Filter out samples processed using DREX protocol
+# Filter out samples processed using DREX protocol and keep only samples at 3h
 read_counts_3h <- read_counts %>%
   dplyr::select(-ends_with("D")) %>%
   dplyr::select((matches("3_")))
@@ -642,7 +635,7 @@ Here we see again that PC1 separates the goethite samples from the rest and that
 
 ```{r PCA_24h, fig.width=8, fig.height=5, message=FALSE, warning=FALSE}
 
-# Filter out samples processed using DREX protocol
+# Filter out samples processed using DREX protocol and keep only samples at 24 h
 read_counts_24h <- read_counts %>%
   dplyr::select(-ends_with("D")) %>%
   dplyr::select((matches("24_")))
@@ -733,9 +726,6 @@ ggplot(pca_df, aes(x = PC3, y = PC4,
   )
 
 ```
-
-
-### Next ideas
 
 
 

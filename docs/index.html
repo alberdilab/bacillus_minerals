@@ -2067,7 +2067,10 @@ color: #a52929;
 <li class="chapter" data-level="2.1.4" data-path="prepare-data.html"><a href="prepare-data.html#get-working-files"><i class="fa fa-check"></i><b>2.1.4</b> Get working files</a></li>
 </ul></li>
 <li class="chapter" data-level="2.2" data-path="prepare-data.html"><a href="prepare-data.html#load-data"><i class="fa fa-check"></i><b>2.2</b> Load data</a></li>
-<li class="chapter" data-level="2.3" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-1"><i class="fa fa-check"></i><b>2.3</b> Prepare data</a></li>
+<li class="chapter" data-level="2.3" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-1"><i class="fa fa-check"></i><b>2.3</b> Prepare data</a>
+<ul>
+<li class="chapter" data-level="2.3.1" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-subsets"><i class="fa fa-check"></i><b>2.3.1</b> Prepare data subsets</a></li>
+</ul></li>
 </ul></li>
 <li class="chapter" data-level="3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html"><i class="fa fa-check"></i><b>3</b> Preliminary visualizations</a>
 <ul>
@@ -2093,7 +2096,19 @@ color: #a52929;
 <ul>
 <li class="chapter" data-level="3.4.1" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#samples-at-3h"><i class="fa fa-check"></i><b>3.4.1</b> Samples at 3h</a></li>
 <li class="chapter" data-level="3.4.2" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#samples-at-24h"><i class="fa fa-check"></i><b>3.4.2</b> Samples at 24h</a></li>
-<li class="chapter" data-level="3.4.3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html#next-ideas"><i class="fa fa-check"></i><b>3.4.3</b> Next ideas</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html"><i class="fa fa-check"></i><b>4</b> Differential expression analysis</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#data-preparation-for-de"><i class="fa fa-check"></i><b>4.1</b> Data preparation for DE</a>
+<ul>
+<li class="chapter" data-level="4.1.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#prepare-metadata"><i class="fa fa-check"></i><b>4.1.1</b> Prepare metadata</a></li>
+<li class="chapter" data-level="4.1.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#custom-plot-functions"><i class="fa fa-check"></i><b>4.1.2</b> Custom plot functions</a></li>
+</ul></li>
+<li class="chapter" data-level="4.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#differential-expression-analysis-1"><i class="fa fa-check"></i><b>4.2</b> Differential expression analysis</a>
+<ul>
+<li class="chapter" data-level="4.2.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#hours"><i class="fa fa-check"></i><b>4.2.1</b> 3 hours</a></li>
+<li class="chapter" data-level="4.2.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#hours-1"><i class="fa fa-check"></i><b>4.2.2</b> 24 hours</a></li>
 </ul></li>
 </ul></li>
 <li class="divider"></li>
@@ -2122,7 +2137,7 @@ color: #a52929;
 <h1 class="title">AlberdiLab | Carbajo et al. 2026</h1>
 <h2 class="subtitle"><em>Study in progress</em></h2>
 <p class="author"><em>Carlota Carbajo, Nanna Gaun, Antton Alberdi<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, Karina Sand</em></p>
-<p class="date"><em>Last update: 2026-02-08</em></p>
+<p class="date"><em>Last update: 2026-02-16</em></p>
 </div>
 <div id="introduction" class="section level1 hasAnchor" number="1">
 <h1><span class="header-section-number">Chapter 1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
@@ -2147,7 +2162,7 @@ color: #a52929;
 <span id="cb2-3"><a href="index.html#cb2-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">&quot;BiocManager&quot;</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
 <span id="cb2-4"><a href="index.html#cb2-4" tabindex="-1"></a>    <span class="fu">install.packages</span>(<span class="st">&quot;BiocManager&quot;</span>)</span>
 <span id="cb2-5"><a href="index.html#cb2-5" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="index.html#cb2-6" tabindex="-1"></a>requiredPackages <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&#39;edgeR&#39;</span>,<span class="st">&#39;DESeq2&#39;</span>,<span class="st">&#39;vsn&#39;</span>,<span class="st">&#39;org.Hs.eg.db&#39;</span>, <span class="st">&quot;knitr&quot;</span>)</span>
+<span id="cb2-6"><a href="index.html#cb2-6" tabindex="-1"></a>requiredPackages <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&#39;edgeR&#39;</span>,<span class="st">&#39;DESeq2&#39;</span>,<span class="st">&#39;vsn&#39;</span>,<span class="st">&#39;org.Hs.eg.db&#39;</span>, <span class="st">&quot;knitr&quot;</span>, <span class="st">&quot;rtracklayer&quot;</span>)</span>
 <span id="cb2-7"><a href="index.html#cb2-7" tabindex="-1"></a><span class="cf">for</span> (p <span class="cf">in</span> requiredPackages) {</span>
 <span id="cb2-8"><a href="index.html#cb2-8" tabindex="-1"></a>  <span class="cf">if</span>(p <span class="sc">%in%</span> <span class="fu">rownames</span>(<span class="fu">installed.packages</span>()) <span class="sc">==</span> <span class="cn">FALSE</span>) {BiocManager<span class="sc">::</span><span class="fu">install</span>(p)}</span>
 <span id="cb2-9"><a href="index.html#cb2-9" tabindex="-1"></a>}</span>
@@ -2171,19 +2186,19 @@ color: #a52929;
 <span id="cb3-11"><a href="index.html#cb3-11" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
 <span id="cb3-12"><a href="index.html#cb3-12" tabindex="-1"></a><span class="fu">library</span>(stringr)</span>
 <span id="cb3-13"><a href="index.html#cb3-13" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb3-14"><a href="index.html#cb3-14" tabindex="-1"></a><span class="fu">library</span>(DESeq2)</span>
-<span id="cb3-15"><a href="index.html#cb3-15" tabindex="-1"></a><span class="fu">library</span>(edgeR)</span>
-<span id="cb3-16"><a href="index.html#cb3-16" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb3-17"><a href="index.html#cb3-17" tabindex="-1"></a><span class="fu">library</span>(vsn)</span>
-<span id="cb3-18"><a href="index.html#cb3-18" tabindex="-1"></a><span class="fu">library</span>(NMF)</span>
-<span id="cb3-19"><a href="index.html#cb3-19" tabindex="-1"></a><span class="fu">library</span>(org.Hs.eg.db)</span>
-<span id="cb3-20"><a href="index.html#cb3-20" tabindex="-1"></a><span class="fu">library</span>(grDevices)</span>
-<span id="cb3-21"><a href="index.html#cb3-21" tabindex="-1"></a><span class="fu">library</span>(hexbin)</span>
-<span id="cb3-22"><a href="index.html#cb3-22" tabindex="-1"></a><span class="fu">library</span>(statmod)</span>
-<span id="cb3-23"><a href="index.html#cb3-23" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span>
-<span id="cb3-24"><a href="index.html#cb3-24" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
-<span id="cb3-25"><a href="index.html#cb3-25" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
-<span id="cb3-26"><a href="index.html#cb3-26" tabindex="-1"></a><span class="fu">library</span>(vegan)</span></code></pre></div>
+<span id="cb3-14"><a href="index.html#cb3-14" tabindex="-1"></a><span class="fu">library</span>(edgeR)</span>
+<span id="cb3-15"><a href="index.html#cb3-15" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb3-16"><a href="index.html#cb3-16" tabindex="-1"></a><span class="fu">library</span>(vsn)</span>
+<span id="cb3-17"><a href="index.html#cb3-17" tabindex="-1"></a><span class="fu">library</span>(NMF)</span>
+<span id="cb3-18"><a href="index.html#cb3-18" tabindex="-1"></a><span class="fu">library</span>(org.Hs.eg.db)</span>
+<span id="cb3-19"><a href="index.html#cb3-19" tabindex="-1"></a><span class="fu">library</span>(grDevices)</span>
+<span id="cb3-20"><a href="index.html#cb3-20" tabindex="-1"></a><span class="fu">library</span>(hexbin)</span>
+<span id="cb3-21"><a href="index.html#cb3-21" tabindex="-1"></a><span class="fu">library</span>(statmod)</span>
+<span id="cb3-22"><a href="index.html#cb3-22" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span>
+<span id="cb3-23"><a href="index.html#cb3-23" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
+<span id="cb3-24"><a href="index.html#cb3-24" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb3-25"><a href="index.html#cb3-25" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
+<span id="cb3-26"><a href="index.html#cb3-26" tabindex="-1"></a><span class="fu">library</span>(limma)</span></code></pre></div>
 
 </div>
 </div>

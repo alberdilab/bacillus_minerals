@@ -83,7 +83,6 @@ read_counts <- read_counts %>%
   pivot_wider(c(gene), names_from = "ID", values_from = "counts") %>%
   column_to_rownames(var = "gene")
  
-
 ```
 
 
@@ -91,12 +90,31 @@ read_counts <- read_counts %>%
 sample_metadata <- sample_metadata %>%
   mutate(ID = paste(`Sample ID`, str_sub(Extraction, 1, 1), sep = "_")) %>%
   column_to_rownames(var = "ID")
- 
+
+
+# Make sure order is the same as in metadata
+read_counts <- read_counts[, rownames(sample_metadata)]
 
 ```
 
 
+### Prepare data subsets
 
+Subset data that will be used in the following analysis
+
+```{r prepare_data_wo_drex, warning=FALSE, comments="", message=FALSE}
+# Filter out DREX samples
+counts_wo_drex <- read_counts %>%
+  dplyr::select(-ends_with("D"))
+
+metadata_wo_drex <- sample_metadata %>%
+  dplyr::filter(Extraction == "Zymo") %>%
+  droplevels()
+
+# Fix the order in counts
+# MOVE THIS TO AN EARLIER STEP IN THE WORKFLOW
+#counts_wo_drex <- counts_wo_drex[, rownames(metadata_wo_drex)]
+```
 
 
 

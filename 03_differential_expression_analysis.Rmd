@@ -1,0 +1,498 @@
+# Differential expression analysis
+
+## Data preparation for DE
+
+### Prepare metadata
+
+```{r data_prep_DE, warning=FALSE, comments="", message=FALSE}
+# Define factors needed for contrasts
+metadata_wo_drex <- metadata_wo_drex %>%
+  mutate(
+    timepoint = factor(timepoint, levels = c("3", "24")),
+    mineral_code = factor(mineral_code, levels = c("C", "G", "H", "M"))
+  )
+
+
+stopifnot(all(colnames(counts_wo_drex) == rownames(metadata_wo_drex)))
+```
+
+### Custom plot functions
+
+```{r custom_func, warning=FALSE, comments="", message=FALSE}
+# Volcano plots
+plot_volcano <- function(res, lfc_cutoff = 1, fdr_cutoff = 0.05, title = "") {
+  res <- res %>%
+    mutate(
+      Significance = case_when(
+        adj.P.Val < fdr_cutoff & logFC > lfc_cutoff ~ "Up",
+        adj.P.Val < fdr_cutoff & logFC < -lfc_cutoff ~ "Down",
+        TRUE ~ "NS"
+      )
+    )
+  
+  ggplot(res, aes(x = logFC, y = -log10(adj.P.Val), color = Significance)) +
+    geom_point(alpha = 0.6) +
+    scale_color_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
+    geom_vline(xintercept = c(-lfc_cutoff, lfc_cutoff), linetype = "dashed") +
+    geom_hline(yintercept = -log10(fdr_cutoff), linetype = "dashed") +
+    theme_bw() +
+    ggtitle(title) +
+    xlab("log2 Fold Change") +
+    ylab("-log10 FDR")
+}
+
+plot_MA <- function(res, title = "", fdr = 0.05, lfc = 1) {
+
+  res2 <- res %>%
+    dplyr::mutate(DE = adj.P.Val < fdr & abs(logFC) >= lfc)
+
+  ggplot(res2, aes(x = AveExpr, y = logFC, color = DE)) +
+    geom_point(alpha = 0.6, size = 1) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    theme_bw() +
+    xlab("Average log2-CPM") +
+    ylab("log2 Fold Change") +
+    ggtitle(title) +
+    scale_color_manual(values = c("FALSE" = "grey70", "TRUE" = "red")) +
+    guides(color = guide_legend(title = paste0("FDR<", fdr, " & |logFC|≥", lfc)))
+}
+
+```
+
+## Differential expression analysis
+
+```{r edgeR_objec_DE, warning=FALSE, comments="", message=FALSE}
+dge <- DGEList(counts = counts_wo_drex)
+
+# Filter: keep genes expressed (CPM > 1) in at least 2 samples
+keep <- rowSums(cpm(dge) > 1) >= 2
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+# TMM normalization
+dge <- calcNormFactors(dge)
+
+```
+
+### 3 hours
+
+```{r 3h_DE, warning=FALSE, comments="", message=FALSE}
+meta_3h <- metadata_wo_drex %>% filter(timepoint == "3")
+dge_3h <- dge[, rownames(meta_3h)]
+
+design_3h <- model.matrix(~ mineral_code, data = meta_3h)
+
+v_3h <- voom(dge_3h, design_3h, plot = TRUE)
+fit_3h <- lmFit(v_3h, design_3h)
+
+contr_3h <- makeContrasts(
+  G_vs_C = mineral_codeG,
+  H_vs_C = mineral_codeH,
+  M_vs_C = mineral_codeM,
+  levels = design_3h
+)
+
+fit_3h2 <- contrasts.fit(fit_3h, contr_3h)
+fit_3h2 <- eBayes(fit_3h2)
+
+# Save tables
+res_3h_G <- topTable(fit_3h2, coef = "G_vs_C", number = Inf, sort.by = "P")
+res_3h_H <- topTable(fit_3h2, coef = "H_vs_C", number = Inf, sort.by = "P")
+res_3h_M <- topTable(fit_3h2, coef = "M_vs_C", number = Inf, sort.by = "P")
+
+```
+
+
+```{r volcano_plot_3h_DE, warning=FALSE, comments="", message=FALSE}
+
+
+
+# Goethite
+plot_volcano(res_3h_G, title = "Volcano plot: Goethite vs Control (3h)")
+
+# Hematite
+plot_volcano(res_3h_H, title = "Volcano plot: Hematite vs Control (3h)")
+
+# Mica
+plot_volcano(res_3h_M, title = "Volcano plot: Mica vs Control (3h)")
+
+
+```
+
+
+```{r genes_of_interest, warning=FALSE, comments="", message=FALSE}
+y_thresh <- 14          # example: -log10(p) > 5
+lfc_thresh <- 2        # log2FC > 2 or < -2
+
+res_3h_G_filt <- res_3h_G %>%
+  dplyr::mutate(log10P = -log10(P.Value)) %>%
+  dplyr::filter(log10P >= y_thresh,
+                abs(logFC) >= lfc_thresh)
+
+
+res_3h_G_filt
+```
+
+
+```{r MA_plot_3h_DE, warning=FALSE, comments="", message=FALSE}
+
+plot_MA(res_3h_G, title = "MA: Goethite vs Control (3h)", fdr = 0.05, lfc = 1)
+plot_MA(res_3h_H, title = "MA: Hematite vs Control (3h)", fdr = 0.05, lfc = 1)
+plot_MA(res_3h_M, title = "MA: Mica vs Control (3h)", fdr = 0.05, lfc = 1)
+
+```
+
+```{r heatmap_top_genes_3h_DE, warning=FALSE, comments="", message=FALSE}
+
+
+# Top 30 DE genes in Goethite vs Control
+top_genes <- rownames(res_3h_G %>% arrange(adj.P.Val) %>% head(30))
+
+matG <- v_3h$E[top_genes, ]  # log2-CPM from voom
+annotation <- meta_3h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_3h)
+pheatmap(matG,
+         annotation_col = annotation,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 DE genes: Goethite vs Control (3h)")
+
+# Top 30 DE genes in Hematite vs Control
+top_genes <- rownames(res_3h_H %>% arrange(adj.P.Val) %>% head(30))
+
+matH <- v_3h$E[top_genes, ]  # log2-CPM from voom
+annotation <- meta_3h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_3h)
+pheatmap(matH,
+         annotation_col = annotation,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 DE genes: Hematite vs Control (3h)")
+
+# Top 30 DE genes in Mica vs Control
+top_genes <- rownames(res_3h_M %>% arrange(adj.P.Val) %>% head(30))
+
+matM <- v_3h$E[top_genes, ]  # log2-CPM from voom
+annotation <- meta_3h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_3h)
+pheatmap(matM,
+         annotation_col = annotation,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 DE genes: Mica vs Control (3h)")
+
+
+
+```
+
+### 24 hours
+
+```{r 24h_DE, warning=FALSE, comments="", message=FALSE}
+# The reference is choosen based on the first level in levels(meta_24h$mineral_code) so each mineral is compared to the control
+meta_24h <- metadata_wo_drex %>% filter(timepoint == "24")
+dge_24h <- dge[, rownames(meta_24h)]
+
+design_24h <- model.matrix(~ mineral_code, data = meta_24h)
+
+v_24h <- voom(dge_24h, design_24h, plot = TRUE)
+fit_24h <- lmFit(v_24h, design_24h)
+
+contr_24h <- makeContrasts(
+  G_vs_C = mineral_codeG,
+  H_vs_C = mineral_codeH,
+  M_vs_C = mineral_codeM,
+  levels = design_24h
+)
+
+fit_24h2 <- contrasts.fit(fit_24h, contr_24h)
+fit_24h2 <- eBayes(fit_24h2)
+
+
+# Save tables
+res_24h_G <- topTable(fit_24h2, coef = "G_vs_C", number = Inf, sort.by = "P")
+res_24h_H <- topTable(fit_24h2, coef = "H_vs_C", number = Inf, sort.by = "P")
+res_24h_M <- topTable(fit_24h2, coef = "M_vs_C", number = Inf, sort.by = "P")
+
+
+```
+```{r volcano_plot_24h_DE, warning=FALSE, comments="", message=FALSE}
+
+# Goethite
+plot_volcano(res_24h_G, title = "Volcano plot: Goethite vs Control (24h)")
+
+# Hematite
+plot_volcano(res_24h_H, title = "Volcano plot: Hematite vs Control (24h)")
+
+# Mica
+plot_volcano(res_24h_M, title = "Volcano plot: Mica vs Control (24h)")
+
+
+```
+
+```{r MA_plot_24h_DE, warning=FALSE, comments="", message=FALSE}
+
+
+plot_MA(res_24h_G, title = "MA plot: Goethite vs Control (24h)", fdr = 0.05, lfc = 1)
+plot_MA(res_24h_H, title = "MA plot: Hematite vs Control (24h)", fdr = 0.05, lfc = 1)
+plot_MA(res_24h_M, title = "MA plot: Mica vs Control (24h)", fdr = 0.05, lfc = 1)
+
+
+```
+```{r heatmap_top_genes_24h_DE, warning=FALSE, comments="", message=FALSE}
+
+
+# Top 30 DE genes in Goethite vs Control
+top_genes <- rownames(res_24h_G %>% arrange(adj.P.Val) %>% head(30))
+
+matG <- v_24h$E[top_genes, ]  # log2-CPM from voom
+annotation <- meta_24h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_24h)
+pheatmap(matG,
+         annotation_col = annotation,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 DE genes: Goethite vs Control (24h)")
+
+# Top 30 DE genes in Hematite vs Control
+top_genes <- rownames(res_24h_H %>% arrange(adj.P.Val) %>% head(30))
+
+matH <- v_24h$E[top_genes, ]  # log2-CPM from voom
+annotation <- meta_24h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_24h)
+pheatmap(matH,
+         annotation_col = annotation,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 DE genes: Hematite vs Control (24h)")
+
+# Top 30 DE genes in Mica vs Control
+top_genes <- rownames(res_24h_M %>% arrange(adj.P.Val) %>% head(30))
+
+matM <- v_24h$E[top_genes, ]  # log2-CPM from voom
+annotation <- meta_24h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_24h)
+pheatmap(matM,
+         annotation_col = annotation,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 DE genes: Mica vs Control (24h)")
+
+
+
+```
+### Interaction DE - UNDER CONSTRUCTION
+
+```{r interaction_DE, warning=FALSE, comments="", message=FALSE}
+design_full <- model.matrix(~ timepoint * mineral_code, data = metadata_wo_drex)
+
+v <- voom(dge, design_full, plot = TRUE)
+fit <- lmFit(v, design_full)
+
+colnames(design_full)
+colnames(design_full) <- make.names(colnames(design_full))
+
+colnames(design_full)
+
+contr_interaction <- makeContrasts(
+  G_change_24_vs_3 = timepoint24.mineral_codeG,
+  H_change_24_vs_3 = timepoint24.mineral_codeH,
+  M_change_24_vs_3 = timepoint24.mineral_codeM,
+  levels = design_full
+)
+
+
+fit_int <- contrasts.fit(fit, contr_interaction)
+fit_int <- eBayes(fit_int)
+
+res_int_G <- topTable(fit_int, coef = "G_change_24_vs_3", number = Inf, sort.by = "P")
+res_int_H <- topTable(fit_int, coef = "H_change_24_vs_3", number = Inf, sort.by = "P")
+res_int_M <- topTable(fit_int, coef = "M_change_24_vs_3", number = Inf, sort.by = "P")
+
+# write.csv(res_3h_G,  "DE_3h_G_vs_C.csv")
+# write.csv(res_3h_H,  "DE_3h_H_vs_C.csv")
+# write.csv(res_3h_M,  "DE_3h_M_vs_C.csv")
+# 
+# write.csv(res_24h_G, "DE_24h_G_vs_C.csv")
+# write.csv(res_24h_H, "DE_24h_H_vs_C.csv")
+# write.csv(res_24h_M, "DE_24h_M_vs_C.csv")
+# 
+# write.csv(res_int_G, "DE_interaction_G_change_24_vs_3.csv")
+# write.csv(res_int_H, "DE_interaction_H_change_24_vs_3.csv")
+# write.csv(res_int_M, "DE_interaction_M_change_24_vs_3.csv")
+
+
+```
+
+
+```{r volcano_plot_interaction_DE, warning=FALSE, comments="", message=FALSE}
+plot_volcano(res_int_G, title = "Interaction volcano: Goethite (24h vs 3h relative to control)")
+plot_volcano(res_int_H, title = "Interaction volcano: Hematite (24h vs 3h relative to control)")
+plot_volcano(res_int_M, title = "Interaction volcano: Mica (24h vs 3h relative to control)")
+
+```
+
+
+
+```{r heatmap_top_genes_interaction_DE, warning=FALSE, comments="", message=FALSE}
+
+top_genes_G <- rownames(res_int_G %>% arrange(adj.P.Val) %>% head(30))
+
+samples_CG <- rownames(metadata_wo_drex) %>%
+  {.[metadata_wo_drex$mineral_code %in% c("C","G")]}
+
+mat_G <- v$E[top_genes_G, samples_CG]
+
+ann_G <- metadata_wo_drex[samples_CG, c("timepoint", "mineral_code"), drop = FALSE]
+
+pheatmap(mat_G,
+         annotation_col = ann_G,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 interaction genes: Goethite (C vs G only)")
+
+
+top_genes_H <- rownames(res_int_H %>% arrange(adj.P.Val) %>% head(30))
+
+samples_CH <- rownames(metadata_wo_drex) %>%
+  {.[metadata_wo_drex$mineral_code %in% c("C","H")]}
+
+mat_H <- v$E[top_genes_H, samples_CH]
+
+ann_H <- metadata_wo_drex[samples_CH, c("timepoint", "mineral_code"), drop = FALSE]
+
+pheatmap(mat_H,
+         annotation_col = ann_H,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 interaction genes: Hematite (C vs H only)")
+
+
+top_genes_M <- rownames(res_int_M %>% arrange(adj.P.Val) %>% head(30))
+
+samples_CM <- rownames(metadata_wo_drex) %>%
+  {.[metadata_wo_drex$mineral_code %in% c("C","M")]}
+
+mat_M <- v$E[top_genes_M, samples_CM]
+
+ann_M <- metadata_wo_drex[samples_CM, c("timepoint", "mineral_code"), drop = FALSE]
+
+pheatmap(mat_M,
+         annotation_col = ann_M,
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main = "Top 30 interaction genes: Mica (C vs M only)")
+
+
+```
+
+```{r interaction_DE_1, warning=FALSE, comments="", message=FALSE}
+
+plot_profiles <- function(gene_ids, v_obj, meta, mineral = "G") {
+  
+  # expression matrix for selected genes
+  expr <- v_obj$E[gene_ids, , drop = FALSE]
+  
+  df <- as.data.frame(t(expr)) %>%
+    tibble::rownames_to_column("sample_id") %>%
+    left_join(meta %>% tibble::rownames_to_column("sample_id"), by = "sample_id") %>%
+    filter(mineral_code %in% c("C", mineral)) %>%
+    mutate(timepoint = factor(timepoint, levels = c("3", "24")),
+           mineral_code = factor(mineral_code, levels = c("C", mineral))) %>%
+    pivot_longer(cols = all_of(gene_ids), names_to = "gene", values_to = "logCPM")
+  
+  df_sum <- df %>%
+    group_by(gene, mineral_code, timepoint) %>%
+    summarise(mean = mean(logCPM), .groups = "drop")
+  
+  ggplot(df_sum, aes(x = timepoint, y = mean, group = mineral_code, color = mineral_code)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 2) +
+    facet_wrap(~ gene, scales = "free_y") +
+    theme_bw() +
+    ggtitle(paste0("Interaction profiles: ", mineral, " vs Control")) +
+    ylab("Mean log2-CPM") +
+    xlab("Timepoint")
+}
+
+top6_G <- rownames(res_int_G %>% arrange(adj.P.Val) %>% head(6))
+plot_profiles(top6_G, v, metadata_wo_drex, mineral = "G")
+
+
+
+```
+
+
+```{r interaction_DE_2, warning=FALSE, comments="", message=FALSE}
+
+delta_delta_plot <- function(v_obj, meta, mineral = "G", ntop = 3000) {
+  
+  expr <- v_obj$E
+  
+  # keep top variable genes to make it fast
+  rv <- matrixStats::rowVars(expr)
+  keep <- order(rv, decreasing = TRUE)[seq_len(min(ntop, nrow(expr)))]
+  expr <- expr[keep, , drop = FALSE]
+  
+  # group means
+  meta2 <- meta %>%
+    mutate(timepoint = factor(timepoint, levels = c("3","24"))) %>%
+    filter(mineral_code %in% c("C", mineral))
+  
+  samples_C3  <- rownames(meta2)[meta2$mineral_code == "C" & meta2$timepoint == "3"]
+  samples_C24 <- rownames(meta2)[meta2$mineral_code == "C" & meta2$timepoint == "24"]
+  samples_M3  <- rownames(meta2)[meta2$mineral_code == mineral & meta2$timepoint == "3"]
+  samples_M24 <- rownames(meta2)[meta2$mineral_code == mineral & meta2$timepoint == "24"]
+  
+  C3  <- rowMeans(expr[, samples_C3,  drop = FALSE])
+  C24 <- rowMeans(expr[, samples_C24, drop = FALSE])
+  M3  <- rowMeans(expr[, samples_M3,  drop = FALSE])
+  M24 <- rowMeans(expr[, samples_M24, drop = FALSE])
+  
+  df <- data.frame(
+    gene = rownames(expr),
+    delta_control = C24 - C3,
+    delta_mineral = M24 - M3
+  )
+  
+  ggplot(df, aes(x = delta_control, y = delta_mineral)) +
+    geom_point(alpha = 0.4) +
+    geom_abline(slope = 1, intercept = 0) +
+    theme_bw() +
+    ggtitle(paste0("Delta–delta plot: ", mineral, " vs Control")) +
+    xlab("Control: (24h - 3h) log2-CPM") +
+    ylab(paste0(mineral, ": (24h - 3h) log2-CPM"))
+}
+
+delta_delta_plot(v, metadata_wo_drex, mineral = "G")
+
+
+
+
+```
+
+
+```{r test, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+
+library(rtracklayer)
+
+
+gff_file <- "data/genomic_GB.gff"  # path to your downloaded file
+gff <- rtracklayer::import(gff_file)
+
+gene_gff <- gff[gff$type == "gene"]
+
+gene_map <- as.data.frame(mcols(gene_gff)) %>%
+  dplyr::select(ID, gene, locus_tag, product)
+
+
+head(gene_map)
+
+```

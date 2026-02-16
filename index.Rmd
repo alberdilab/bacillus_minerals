@@ -51,7 +51,7 @@ Install this packages if needed
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-requiredPackages = c('edgeR','DESeq2','vsn','org.Hs.eg.db', "knitr")
+requiredPackages = c('edgeR','DESeq2','vsn','org.Hs.eg.db', "knitr", "rtracklayer")
 for (p in requiredPackages) {
   if(p %in% rownames(installed.packages()) == FALSE) {BiocManager::install(p)}
 }
@@ -61,6 +61,8 @@ requiredPackages = c('ggplot2','dplyr','NMF','grDevices', "hexbin", "statmod", "
 for (p in requiredPackages) {
   if(p %in% rownames(installed.packages()) == FALSE) {install.packages(p)}
 }
+
+
 ```
 
 The following R packages are required for the data analysis.
@@ -79,7 +81,6 @@ library(ggtext)
 library(tibble)
 library(stringr)
 library(dplyr)
-library(DESeq2)
 library(edgeR)
 library(ggplot2)
 library(vsn)
@@ -92,4 +93,6 @@ library(reshape2)
 library(pheatmap)
 library(tibble)
 library(vegan)
+library(limma)
+
 ```

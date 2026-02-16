@@ -10,6 +10,7 @@ experimental-design
 get-working-files
 load-data
 prepare-data-1
+prepare-data-subsets
 preliminary-visualizations
 filtering-and-normalization
 preliminary-visualizations-1
@@ -28,4 +29,10 @@ permanova-and-dispersion-test-1
 other-pcas
 samples-at-3h
 samples-at-24h
-next-ideas
+differential-expression-analysis
+data-preparation-for-de
+prepare-metadata
+custom-plot-functions
+differential-expression-analysis-1
+hours
+hours-1
