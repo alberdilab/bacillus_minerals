@@ -51,7 +51,7 @@ Install this packages if needed
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-requiredPackages = c('edgeR','DESeq2','vsn','org.Hs.eg.db', "knitr", "rtracklayer")
+requiredPackages = c('edgeR','DESeq2','vsn', "knitr", "rtracklayer", 'clusterProfiler')
 for (p in requiredPackages) {
   if(p %in% rownames(installed.packages()) == FALSE) {BiocManager::install(p)}
 }
@@ -94,5 +94,8 @@ library(pheatmap)
 library(tibble)
 library(vegan)
 library(limma)
-
+library(GenomicRanges)
+library(rtracklayer)
+library(clusterProfiler)
+library(org.Bs.eg.db)
 ```

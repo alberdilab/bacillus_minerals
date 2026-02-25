@@ -117,4 +117,50 @@ metadata_wo_drex <- sample_metadata %>%
 ```
 
 
+### Prepare annotation file
 
+The annotation file provided was produced using Prodigal and lacks information that will be required later in the analysis like gene names, locus tags and Entrez IDs (required to run kegga() from limma package).
+
+To add the missing information the RefSeq GFF file for B.subtilis str 168 was downloaded from [NCBI](https://www.ncbi.nlm.nih.gov/datasets/taxonomy/224308/)
+
+```{r load_GFF, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+# Load GFF
+gff_file <- "data/genomic_RefSeq.gff"
+gff <- rtracklayer::import(gff_file)
+
+gene_gff <- gff[gff$type == "gene"]
+```
+
+```{r prepare_refseq_annotation, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+gene_df <- as.data.frame(gene_gff)
+
+# Dbxref is a CharacterList
+gene_df$Dbxref <- as.character(gene_df$Dbxref)
+
+# Extract only the GeneID
+gene_df$GeneID <- str_extract(gene_df$Dbxref, "GeneID:\\d+")
+gene_df$GeneID <- str_remove(gene_df$GeneID, "GeneID:")
+
+refseq_annotation <- gene_df %>%
+  dplyr::select(
+    seqnames,
+    start,
+    end,
+    strand,
+    gene,
+    locus_tag,
+    GeneID
+  )
+
+readr::write_tsv(refseq_annotation, "data/refseq_gene_annotation.tsv")
+```
+
+Load the prepared refseq annotation file and join with the original annotation file
+```{r load_GFF, warning=FALSE, comments="", message=FALSE}
+refseq_annotation <- read_tsv("data/refseq_gene_annotation.tsv")
+
+complete_gene_annotation <- gene_annotations %>%
+  dplyr::rename(ID_prodigal = gene) %>%
+  left_join(refseq_annotation,
+            by = c("start", "end", "strand"))
+```

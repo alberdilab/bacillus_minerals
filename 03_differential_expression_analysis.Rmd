@@ -120,8 +120,8 @@ plot_volcano(res_3h_M, title = "Volcano plot: Mica vs Control (3h)")
 
 
 ```{r genes_of_interest, warning=FALSE, comments="", message=FALSE}
-y_thresh <- 14          # example: -log10(p) > 5
-lfc_thresh <- 2        # log2FC > 2 or < -2
+y_thresh <- 2          # example: -log10(p) > 5
+lfc_thresh <- 4        # log2FC > 2 or < -2
 
 res_3h_G_filt <- res_3h_G %>%
   dplyr::mutate(log10P = -log10(P.Value)) %>%
@@ -478,21 +478,3 @@ delta_delta_plot(v, metadata_wo_drex, mineral = "G")
 
 ```
 
-
-```{r test, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-
-library(rtracklayer)
-
-
-gff_file <- "data/genomic_GB.gff"  # path to your downloaded file
-gff <- rtracklayer::import(gff_file)
-
-gene_gff <- gff[gff$type == "gene"]
-
-gene_map <- as.data.frame(mcols(gene_gff)) %>%
-  dplyr::select(ID, gene, locus_tag, product)
-
-
-head(gene_map)
-
-```
