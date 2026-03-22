@@ -1,0 +1,1365 @@
+---
+title: "04_gene_enrichment"
+output: html_document
+---
+
+```{r read_extra_annotation, warning=FALSE, comments="", message=FALSE}
+# Read annotation files
+anno_metadata <- read_delim("data/go-anno.bsub_test.tsv", col_names = FALSE)
+colnames(anno_metadata) <- c("name", "locus_tag")
+
+go_anno <- read_delim("data/go-anno.bsub.tsv", col_names = FALSE)
+colnames(go_anno) <- c("name", "go_id", "description")
+
+kegg_anno <- read_delim("data/kegg_pathways-anno.bsub.tsv", col_names = FALSE)
+colnames(kegg_anno) <- c("name", "ko_id", "keggdesc")
+
+
+# Prepare TERM2GENE and TERM2NAM
+# GO
+term2gene_GO <- go_anno %>%
+  left_join(anno_metadata, by = "name") %>%
+  select(go_id, locus_tag)
+
+term2gene_GO$locus_tag <- gsub("_", "", term2gene_GO$locus_tag)
+
+term2name_GO <- go_anno %>%
+  left_join(anno_metadata, by = "name") %>%
+  select(go_id, description)
+```
+
+
+```{ _test, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+# Useful to see how the IDs expected by kegga have to be, they should not have _ in between BSU and number ID
+kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+head(kegg_genes)
+```
+
+## KEGG enrichment Goethite 3 h and 24 h
+
+```{r KEGG_goe_3h, warning=FALSE, comments="", message=FALSE, fig.width=12, fig.height=7}
+# Prepare table
+res <- res_3h_G %>%
+  dplyr::select(logFC, adj.P.Val) %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+
+res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
+
+# Check number of genes in the universe have annotated KEGG, kegga has more than clusterProfiler 1187 vs 1149
+# kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+# 
+# sum(res$locus_tag_fixed %in% kegg_genes$GeneID)
+
+# DE genes
+de_genes <- res %>%
+  dplyr::filter(adj.P.Val < 0.05) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+# Universe (all tested genes)
+all_genes <- res$locus_tag_fixed
+all_genes <- all_genes[!is.na(all_genes)]
+
+de_genes  <- as.character(de_genes)
+all_genes <- as.character(all_genes)
+
+k <- kegga(
+  de = de_genes,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_df <- as.data.frame(k) %>%
+  dplyr::mutate(FDR = p.adjust(P.DE, method = "BH")) %>%
+  dplyr::arrange(FDR)  %>%
+  dplyr::filter(FDR < 0.05) %>%
+  dplyr::mutate(
+    GeneRatio = DE / N
+  ) %>%
+  dplyr::arrange(FDR)
+
+
+# Select top 10 pathways by FDR
+top_kegg <- k_df %>%
+  filter(!is.na(FDR)) %>%         # remove NAs
+  arrange(FDR) %>%
+  slice(1:10) %>%
+  # Add enrichment ratio
+  mutate(GeneRatio = DE / N,
+         Pathway = factor(Pathway, levels = rev(Pathway)))  # for proper ordering in plot
+
+# Dotplot
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway, size = DE, color = -log10(FDR))) +
+  geom_point() +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Top 10 KEGG Pathway Enrichment"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# directional KEGG enrichment
+# Split by direction
+de_up <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC > 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_down <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC < 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_up   <- as.character(de_up)
+de_down <- as.character(de_down)
+
+all_genes <- as.character(na.omit(res$locus_tag_fixed))
+
+
+k_up <- kegga(
+  de = de_up,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_down <- kegga(
+  de = de_down,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+
+format_kegg <- function(k_obj, direction_label) {
+  as.data.frame(k_obj) %>%
+    dplyr::mutate(
+      FDR = p.adjust(P.DE, method = "BH"),
+      GeneRatio = DE / N,
+      Direction = direction_label
+    ) %>%
+    dplyr::filter(FDR < 0.05)
+}
+
+k_up_df   <- format_kegg(k_up, "Activated")
+k_down_df <- format_kegg(k_down, "Repressed")
+
+k_all <- dplyr::bind_rows(k_up_df, k_down_df)
+
+
+top_kegg <- k_all %>%
+  group_by(Direction) %>%
+  arrange(FDR) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  mutate(Pathway = factor(Pathway, levels = unique(Pathway)))
+
+
+
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway,
+                     size = DE, color = -log10(FDR))) +
+  geom_point() +
+  facet_wrap(~Direction, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Directional KEGG Pathway Enrichment"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+ora_GO <- enricher(
+  gene = de_genes,
+  TERM2GENE = term2gene_GO,
+  TERM2NAME = term2name_GO,
+  universe = all_genes,  # map universe too
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Dotplot of top GO terms
+dotplot(ora_GO) + ggtitle("GO ORA - Goethite 3h DEGs")
+
+
+
+GO_counts <- term2gene_GO %>%
+  filter(locus_tag %in% de_genes) %>%     # only DE genes
+  distinct(go_id, locus_tag) %>%              # avoid duplicates
+  group_by(go_id) %>%
+  summarise(n_DE_genes = n()) %>%
+  left_join(term2name_GO %>% distinct(go_id, description),
+            by = "go_id") %>%
+  arrange(desc(n_DE_genes))
+
+top_GO <- GO_counts %>%
+  slice_max(n_DE_genes, n = 20)
+
+
+ggplot(top_GO, aes(x = reorder(description, n_DE_genes),
+                   y = n_DE_genes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top GO categories with most DE genes\nGoethite vs Control (3h)",
+       x = "GO category",
+       y = "Number of DE genes")
+```
+```{r KEGG_goe_24h, fig.width=12, fig.height=7}
+# Prepare table
+res <- res_24h_G %>%
+  dplyr::select(logFC, adj.P.Val) %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+
+res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
+
+# Check number of genes in the universe have annotated KEGG, kegga has more than clusterProfiler 1187 vs 1149
+# kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+# 
+# sum(res$locus_tag_fixed %in% kegg_genes$GeneID)
+
+# DE genes
+de_genes <- res %>%
+  dplyr::filter(adj.P.Val < 0.05) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+# Universe (all tested genes)
+all_genes <- res$locus_tag_fixed
+all_genes <- all_genes[!is.na(all_genes)]
+
+de_genes  <- as.character(de_genes)
+all_genes <- as.character(all_genes)
+
+k <- kegga(
+  de = de_genes,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_df <- as.data.frame(k) %>%
+  dplyr::mutate(FDR = p.adjust(P.DE, method = "BH")) %>%
+  dplyr::arrange(FDR)  %>%
+  dplyr::filter(FDR < 0.05) %>%
+  dplyr::mutate(
+    GeneRatio = DE / N
+  ) %>%
+  dplyr::arrange(FDR)
+
+
+# Select top 10 pathways by FDR
+top_kegg <- k_df %>%
+  filter(!is.na(FDR)) %>%         # remove NAs
+  arrange(FDR) %>%
+  slice(1:10) %>%
+  # Add enrichment ratio
+  mutate(GeneRatio = DE / N,
+         Pathway = factor(Pathway, levels = rev(Pathway)))  # for proper ordering in plot
+
+# Dotplot
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway, size = DE, color = -log10(FDR))) +
+  geom_point() +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Top 10 KEGG Pathway Enrichment"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# directional KEGG enrichment
+# Split by direction
+de_up <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC > 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_down <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC < 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_up   <- as.character(de_up)
+de_down <- as.character(de_down)
+
+all_genes <- as.character(na.omit(res$locus_tag_fixed))
+
+
+k_up <- kegga(
+  de = de_up,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_down <- kegga(
+  de = de_down,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+
+format_kegg <- function(k_obj, direction_label) {
+  as.data.frame(k_obj) %>%
+    dplyr::mutate(
+      FDR = p.adjust(P.DE, method = "BH"),
+      GeneRatio = DE / N,
+      Direction = direction_label
+    ) %>%
+    dplyr::filter(FDR < 0.05)
+}
+
+k_up_df   <- format_kegg(k_up, "Activated")
+k_down_df <- format_kegg(k_down, "Repressed")
+
+k_all <- dplyr::bind_rows(k_up_df, k_down_df)
+
+
+top_kegg <- k_all %>%
+  group_by(Direction) %>%
+  arrange(FDR) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  mutate(Pathway = factor(Pathway, levels = unique(Pathway)))
+
+
+
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway,
+                     size = DE, color = -log10(FDR))) +
+  geom_point() +
+  facet_wrap(~Direction, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Directional KEGG Pathway Enrichment"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+ora_GO <- enricher(
+  gene = de_genes,
+  TERM2GENE = term2gene_GO,
+  TERM2NAME = term2name_GO,
+  universe = all_genes,  # map universe too
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Dotplot of top GO terms
+dotplot(ora_GO) + ggtitle("GO ORA - Goethite 24h DEGs")
+
+
+GO_counts <- term2gene_GO %>%
+  filter(locus_tag %in% de_genes) %>%     # only DE genes
+  distinct(go_id, locus_tag) %>%              # avoid duplicates
+  group_by(go_id) %>%
+  summarise(n_DE_genes = n()) %>%
+  left_join(term2name_GO %>% distinct(go_id, description),
+            by = "go_id") %>%
+  arrange(desc(n_DE_genes))
+
+top_GO <- GO_counts %>%
+  slice_max(n_DE_genes, n = 20)
+
+
+ggplot(top_GO, aes(x = reorder(description, n_DE_genes),
+                   y = n_DE_genes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top GO categories with most DE genes\nGoethite vs Control (24h)",
+       x = "GO category",
+       y = "Number of DE genes")
+```
+
+## KEGG enrichment Hematite 3 h and 24 h
+
+```{r KEGG_hem_3h, warning=FALSE, comments="", message=FALSE, fig.width=12, fig.height=7}
+# Prepare table
+res <- res_3h_H %>%
+  dplyr::select(logFC, adj.P.Val) %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+
+res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
+
+# Check number of genes in the universe have annotated KEGG, kegga has more than clusterProfiler 1187 vs 1149
+# kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+# 
+# sum(res$locus_tag_fixed %in% kegg_genes$GeneID)
+
+# DE genes
+de_genes <- res %>%
+  dplyr::filter(adj.P.Val < 0.05) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+# Universe (all tested genes)
+all_genes <- res$locus_tag_fixed
+all_genes <- all_genes[!is.na(all_genes)]
+
+de_genes  <- as.character(de_genes)
+all_genes <- as.character(all_genes)
+
+k <- kegga(
+  de = de_genes,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_df <- as.data.frame(k) %>%
+  dplyr::mutate(FDR = p.adjust(P.DE, method = "BH")) %>%
+  dplyr::arrange(FDR)  %>%
+  dplyr::filter(FDR < 0.05) %>%
+  dplyr::mutate(
+    GeneRatio = DE / N
+  ) %>%
+  dplyr::arrange(FDR)
+
+
+# Select top 10 pathways by FDR
+top_kegg <- k_df %>%
+  filter(!is.na(FDR)) %>%         # remove NAs
+  arrange(FDR) %>%
+  slice(1:10) %>%
+  # Add enrichment ratio
+  mutate(GeneRatio = DE / N,
+         Pathway = factor(Pathway, levels = rev(Pathway)))  # for proper ordering in plot
+
+# Dotplot
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway, size = DE, color = -log10(FDR))) +
+  geom_point() +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Top 10 KEGG Pathway Enrichment"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# directional KEGG enrichment
+# Split by direction
+de_up <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC > 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_down <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC < 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_up   <- as.character(de_up)
+de_down <- as.character(de_down)
+
+all_genes <- as.character(na.omit(res$locus_tag_fixed))
+
+
+k_up <- kegga(
+  de = de_up,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_down <- kegga(
+  de = de_down,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+
+format_kegg <- function(k_obj, direction_label) {
+  as.data.frame(k_obj) %>%
+    dplyr::mutate(
+      FDR = p.adjust(P.DE, method = "BH"),
+      GeneRatio = DE / N,
+      Direction = direction_label
+    ) %>%
+    dplyr::filter(FDR < 0.05)
+}
+
+k_up_df   <- format_kegg(k_up, "Activated")
+k_down_df <- format_kegg(k_down, "Repressed")
+
+k_all <- dplyr::bind_rows(k_up_df, k_down_df)
+
+
+top_kegg <- k_all %>%
+  group_by(Direction) %>%
+  arrange(FDR) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  mutate(Pathway = factor(Pathway, levels = unique(Pathway)))
+
+
+
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway,
+                     size = DE, color = -log10(FDR))) +
+  geom_point() +
+  facet_wrap(~Direction, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Directional KEGG Pathway Enrichment"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+ora_GO <- enricher(
+  gene = de_genes,
+  TERM2GENE = term2gene_GO,
+  TERM2NAME = term2name_GO,
+  universe = all_genes,  # map universe too
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Dotplot of top GO terms
+dotplot(ora_GO) + ggtitle("GO ORA - Hematite 3h DEGs")
+
+
+
+GO_counts <- term2gene_GO %>%
+  filter(locus_tag %in% de_genes) %>%     # only DE genes
+  distinct(go_id, locus_tag) %>%              # avoid duplicates
+  group_by(go_id) %>%
+  summarise(n_DE_genes = n()) %>%
+  left_join(term2name_GO %>% distinct(go_id, description),
+            by = "go_id") %>%
+  arrange(desc(n_DE_genes))
+
+top_GO <- GO_counts %>%
+  slice_max(n_DE_genes, n = 20)
+
+
+ggplot(top_GO, aes(x = reorder(description, n_DE_genes),
+                   y = n_DE_genes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top GO categories with most DE genes\nHematite vs Control (3h)",
+       x = "GO category",
+       y = "Number of DE genes")
+```
+```{r KEGG_hem_24h, warning=FALSE, comments="", message=FALSE, fig.width=12, fig.height=7}
+# Prepare table
+res <- res_24h_H %>%
+  dplyr::select(logFC, adj.P.Val) %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+
+res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
+
+# Check number of genes in the universe have annotated KEGG, kegga has more than clusterProfiler 1187 vs 1149
+# kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+# 
+# sum(res$locus_tag_fixed %in% kegg_genes$GeneID)
+
+# DE genes
+de_genes <- res %>%
+  dplyr::filter(adj.P.Val < 0.05) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+# Universe (all tested genes)
+all_genes <- res$locus_tag_fixed
+all_genes <- all_genes[!is.na(all_genes)]
+
+de_genes  <- as.character(de_genes)
+all_genes <- as.character(all_genes)
+
+k <- kegga(
+  de = de_genes,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_df <- as.data.frame(k) %>%
+  dplyr::mutate(FDR = p.adjust(P.DE, method = "BH")) %>%
+  dplyr::arrange(FDR)  %>%
+  dplyr::filter(FDR < 0.05) %>%
+  dplyr::mutate(
+    GeneRatio = DE / N
+  ) %>%
+  dplyr::arrange(FDR)
+
+
+# Select top 10 pathways by FDR
+top_kegg <- k_df %>%
+  filter(!is.na(FDR)) %>%         # remove NAs
+  arrange(FDR) %>%
+  slice(1:10) %>%
+  # Add enrichment ratio
+  mutate(GeneRatio = DE / N,
+         Pathway = factor(Pathway, levels = rev(Pathway)))  # for proper ordering in plot
+
+# Dotplot
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway, size = DE, color = -log10(FDR))) +
+  geom_point() +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Top 10 KEGG Pathway Enrichment"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# directional KEGG enrichment
+# Split by direction
+de_up <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC > 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_down <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC < 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_up   <- as.character(de_up)
+de_down <- as.character(de_down)
+
+all_genes <- as.character(na.omit(res$locus_tag_fixed))
+
+
+k_up <- kegga(
+  de = de_up,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_down <- kegga(
+  de = de_down,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+
+format_kegg <- function(k_obj, direction_label) {
+  as.data.frame(k_obj) %>%
+    dplyr::mutate(
+      FDR = p.adjust(P.DE, method = "BH"),
+      GeneRatio = DE / N,
+      Direction = direction_label
+    ) %>%
+    dplyr::filter(FDR < 0.05)
+}
+
+k_up_df   <- format_kegg(k_up, "Activated")
+k_down_df <- format_kegg(k_down, "Repressed")
+
+k_all <- dplyr::bind_rows(k_up_df, k_down_df)
+
+
+top_kegg <- k_all %>%
+  group_by(Direction) %>%
+  arrange(FDR) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  mutate(Pathway = factor(Pathway, levels = unique(Pathway)))
+
+
+
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway,
+                     size = DE, color = -log10(FDR))) +
+  geom_point() +
+  facet_wrap(~Direction, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Directional KEGG Pathway Enrichment"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+ora_GO <- enricher(
+  gene = de_genes,
+  TERM2GENE = term2gene_GO,
+  TERM2NAME = term2name_GO,
+  universe = all_genes,  # map universe too
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Dotplot of top GO terms
+dotplot(ora_GO) + ggtitle("GO ORA - Hematite 24h DEGs")
+
+
+
+GO_counts <- term2gene_GO %>%
+  filter(locus_tag %in% de_genes) %>%     # only DE genes
+  distinct(go_id, locus_tag) %>%              # avoid duplicates
+  group_by(go_id) %>%
+  summarise(n_DE_genes = n()) %>%
+  left_join(term2name_GO %>% distinct(go_id, description),
+            by = "go_id") %>%
+  arrange(desc(n_DE_genes))
+
+top_GO <- GO_counts %>%
+  slice_max(n_DE_genes, n = 20)
+
+
+ggplot(top_GO, aes(x = reorder(description, n_DE_genes),
+                   y = n_DE_genes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top GO categories with most DE genes\nHematite vs Control (24h)",
+       x = "GO category",
+       y = "Number of DE genes")
+```
+
+## KEGG enrichment Mica 3 h and 24 h
+
+```{r KEGG_mic_3h, warning=FALSE, comments="", message=FALSE, fig.width=12, fig.height=7}
+# Prepare table
+res <- res_3h_M %>%
+  dplyr::select(logFC, adj.P.Val) %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+
+res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
+
+# Check number of genes in the universe have annotated KEGG, kegga has more than clusterProfiler 1187 vs 1149
+# kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+# 
+# sum(res$locus_tag_fixed %in% kegg_genes$GeneID)
+
+# DE genes
+de_genes <- res %>%
+  dplyr::filter(adj.P.Val < 0.05) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+# Universe (all tested genes)
+all_genes <- res$locus_tag_fixed
+all_genes <- all_genes[!is.na(all_genes)]
+
+de_genes  <- as.character(de_genes)
+all_genes <- as.character(all_genes)
+
+k <- kegga(
+  de = de_genes,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_df <- as.data.frame(k) %>%
+  dplyr::mutate(FDR = p.adjust(P.DE, method = "BH")) %>%
+  dplyr::arrange(FDR)  %>%
+  dplyr::filter(FDR < 0.05) %>%
+  dplyr::mutate(
+    GeneRatio = DE / N
+  ) %>%
+  dplyr::arrange(FDR)
+
+
+# Select top 10 pathways by FDR
+top_kegg <- k_df %>%
+  filter(!is.na(FDR)) %>%         # remove NAs
+  arrange(FDR) %>%
+  slice(1:10) %>%
+  # Add enrichment ratio
+  mutate(GeneRatio = DE / N,
+         Pathway = factor(Pathway, levels = rev(Pathway)))  # for proper ordering in plot
+
+# Dotplot
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway, size = DE, color = -log10(FDR))) +
+  geom_point() +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Top 10 KEGG Pathway Enrichment"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# directional KEGG enrichment
+# Split by direction
+de_up <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC > 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_down <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC < 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_up   <- as.character(de_up)
+de_down <- as.character(de_down)
+
+all_genes <- as.character(na.omit(res$locus_tag_fixed))
+
+
+k_up <- kegga(
+  de = de_up,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_down <- kegga(
+  de = de_down,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+
+format_kegg <- function(k_obj, direction_label) {
+  as.data.frame(k_obj) %>%
+    dplyr::mutate(
+      FDR = p.adjust(P.DE, method = "BH"),
+      GeneRatio = DE / N,
+      Direction = direction_label
+    ) %>%
+    dplyr::filter(FDR < 0.05)
+}
+
+k_up_df   <- format_kegg(k_up, "Activated")
+k_down_df <- format_kegg(k_down, "Repressed")
+
+k_all <- dplyr::bind_rows(k_up_df, k_down_df)
+
+
+top_kegg <- k_all %>%
+  group_by(Direction) %>%
+  arrange(FDR) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  mutate(Pathway = factor(Pathway, levels = unique(Pathway)))
+
+
+
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway,
+                     size = DE, color = -log10(FDR))) +
+  geom_point() +
+  facet_wrap(~Direction, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Directional KEGG Pathway Enrichment"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+ora_GO <- enricher(
+  gene = de_genes,
+  TERM2GENE = term2gene_GO,
+  TERM2NAME = term2name_GO,
+  universe = all_genes,  # map universe too
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Dotplot of top GO terms
+dotplot(ora_GO) + ggtitle("GO ORA - Mica 3h DEGs")
+
+
+
+GO_counts <- term2gene_GO %>%
+  filter(locus_tag %in% de_genes) %>%     # only DE genes
+  distinct(go_id, locus_tag) %>%              # avoid duplicates
+  group_by(go_id) %>%
+  summarise(n_DE_genes = n()) %>%
+  left_join(term2name_GO %>% distinct(go_id, description),
+            by = "go_id") %>%
+  arrange(desc(n_DE_genes))
+
+top_GO <- GO_counts %>%
+  slice_max(n_DE_genes, n = 20)
+
+
+ggplot(top_GO, aes(x = reorder(description, n_DE_genes),
+                   y = n_DE_genes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top GO categories with most DE genes\nMica vs Control (3h)",
+       x = "GO category",
+       y = "Number of DE genes")
+```
+
+
+
+```{r KEGG_mic_24h, warning=FALSE, comments="", message=FALSE, fig.width=12, fig.height=7}
+# Prepare table
+res <- res_24h_M %>%
+  dplyr::select(logFC, adj.P.Val) %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+
+res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
+
+# Check number of genes in the universe have annotated KEGG, kegga has more than clusterProfiler 1187 vs 1149
+# kegg_genes <- limma:::getGeneKEGGLinks("bsu")
+# 
+# sum(res$locus_tag_fixed %in% kegg_genes$GeneID)
+
+# DE genes
+de_genes <- res %>%
+  dplyr::filter(adj.P.Val < 0.05) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+# Universe (all tested genes)
+all_genes <- res$locus_tag_fixed
+all_genes <- all_genes[!is.na(all_genes)]
+
+de_genes  <- as.character(de_genes)
+all_genes <- as.character(all_genes)
+
+k <- kegga(
+  de = de_genes,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_df <- as.data.frame(k) %>%
+  dplyr::mutate(FDR = p.adjust(P.DE, method = "BH")) %>%
+  dplyr::arrange(FDR)  %>%
+  dplyr::filter(FDR < 0.05) %>%
+  dplyr::mutate(
+    GeneRatio = DE / N
+  ) %>%
+  dplyr::arrange(FDR)
+
+
+# Select top 10 pathways by FDR
+top_kegg <- k_df %>%
+  filter(!is.na(FDR)) %>%         # remove NAs
+  arrange(FDR) %>%
+  slice(1:10) %>%
+  # Add enrichment ratio
+  mutate(GeneRatio = DE / N,
+         Pathway = factor(Pathway, levels = rev(Pathway)))  # for proper ordering in plot
+
+# Dotplot
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway, size = DE, color = -log10(FDR))) +
+  geom_point() +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Top 10 KEGG Pathway Enrichment"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+# directional KEGG enrichment
+# Split by direction
+de_up <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC > 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_down <- res %>%
+  dplyr::filter(adj.P.Val < 0.05, logFC < 0) %>%
+  dplyr::pull(locus_tag_fixed) %>%
+  na.omit()
+
+de_up   <- as.character(de_up)
+de_down <- as.character(de_down)
+
+all_genes <- as.character(na.omit(res$locus_tag_fixed))
+
+
+k_up <- kegga(
+  de = de_up,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+k_down <- kegga(
+  de = de_down,
+  universe = all_genes,
+  species.KEGG = "bsu"
+)
+
+
+format_kegg <- function(k_obj, direction_label) {
+  as.data.frame(k_obj) %>%
+    dplyr::mutate(
+      FDR = p.adjust(P.DE, method = "BH"),
+      GeneRatio = DE / N,
+      Direction = direction_label
+    ) %>%
+    dplyr::filter(FDR < 0.05)
+}
+
+k_up_df   <- format_kegg(k_up, "Activated")
+k_down_df <- format_kegg(k_down, "Repressed")
+
+k_all <- dplyr::bind_rows(k_up_df, k_down_df)
+
+
+top_kegg <- k_all %>%
+  group_by(Direction) %>%
+  arrange(FDR) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  mutate(Pathway = factor(Pathway, levels = unique(Pathway)))
+
+
+
+ggplot(top_kegg, aes(x = GeneRatio, y = Pathway,
+                     size = DE, color = -log10(FDR))) +
+  geom_point() +
+  facet_wrap(~Direction, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "red") +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Gene Ratio (DE / N)",
+    y = "",
+    color = "-log10(FDR)",
+    size = "DE genes",
+    title = "Directional KEGG Pathway Enrichment"
+  ) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+ora_GO <- enricher(
+  gene = de_genes,
+  TERM2GENE = term2gene_GO,
+  TERM2NAME = term2name_GO,
+  universe = all_genes,  # map universe too
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Dotplot of top GO terms
+dotplot(ora_GO) + ggtitle("GO ORA - Mica 24h DEGs")
+
+
+GO_counts <- term2gene_GO %>%
+  filter(locus_tag %in% de_genes) %>%     # only DE genes
+  distinct(go_id, locus_tag) %>%              # avoid duplicates
+  group_by(go_id) %>%
+  summarise(n_DE_genes = n()) %>%
+  left_join(term2name_GO %>% distinct(go_id, description),
+            by = "go_id") %>%
+  arrange(desc(n_DE_genes))
+
+top_GO <- GO_counts %>%
+  slice_max(n_DE_genes, n = 20)
+
+
+ggplot(top_GO, aes(x = reorder(description, n_DE_genes),
+                   y = n_DE_genes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top GO categories with most DE genes\nMica vs Control (24h)",
+       x = "GO category",
+       y = "Number of DE genes")
+```
+
+
+## Under construction
+
+```{r top50, fig.width=8, fig.height=9}
+top50 <- res_3h_G %>%
+  rownames_to_column("ID_prodigal") %>%
+  arrange(adj.P.Val) %>%
+  head(50) %>%
+  left_join(
+    complete_gene_annotation %>%
+      dplyr::select(ID_prodigal, gene, locus_tag),
+    by = "ID_prodigal"
+  ) %>%
+  mutate(
+    gene_label = ifelse(is.na(gene) | gene == "", ID_prodigal, gene),
+    direction = ifelse(logFC > 0, "Up", "Down")
+  )
+
+top50 <- top50 %>%
+  arrange(logFC) %>%
+  mutate(gene_label = make.unique(gene_label),
+         gene_label = factor(gene_label, levels = gene_label))
+
+ggplot(top50, aes(x = gene_label, y = logFC, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Up" = "red", "Down" = "blue")) +
+  theme_bw() +
+  labs(
+    title = "Top 50 Differentially Expressed Genes\nGoethite vs Control (3h)",
+    x = "Gene",
+    y = "log2 Fold Change",
+    fill = "Regulation"
+  )
+
+top50 <- res_24h_G %>%
+  rownames_to_column("ID_prodigal") %>%
+  arrange(adj.P.Val) %>%
+  head(50) %>%
+  left_join(
+    complete_gene_annotation %>%
+      dplyr::select(ID_prodigal, gene, locus_tag),
+    by = "ID_prodigal"
+  ) %>%
+  mutate(
+    gene_label = ifelse(is.na(gene) | gene == "", ID_prodigal, gene),
+    direction = ifelse(logFC > 0, "Up", "Down")
+  )
+
+top50 <- top50 %>%
+  arrange(logFC) %>%
+  mutate(gene_label = make.unique(gene_label),
+         gene_label = factor(gene_label, levels = gene_label))
+
+ggplot(top50, aes(x = gene_label, y = logFC, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Up" = "red", "Down" = "blue")) +
+  theme_bw() +
+  labs(
+    title = "Top 50 Differentially Expressed Genes\nGoethite vs Control (24h)",
+    x = "Gene",
+    y = "log2 Fold Change",
+    fill = "Regulation"
+  )
+
+
+top50 <- res_3h_H %>%
+  rownames_to_column("ID_prodigal") %>%
+  arrange(adj.P.Val) %>%
+  head(50) %>%
+  left_join(
+    complete_gene_annotation %>%
+      dplyr::select(ID_prodigal, gene, locus_tag),
+    by = "ID_prodigal"
+  ) %>%
+  mutate(
+    gene_label = ifelse(is.na(gene) | gene == "", ID_prodigal, gene),
+    direction = ifelse(logFC > 0, "Up", "Down")
+  )
+
+top50 <- top50 %>%
+  arrange(logFC) %>%
+  mutate(gene_label = make.unique(gene_label),
+         gene_label = factor(gene_label, levels = gene_label))
+
+ggplot(top50, aes(x = gene_label, y = logFC, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Up" = "red", "Down" = "blue")) +
+  theme_bw() +
+  labs(
+    title = "Top 50 Differentially Expressed Genes\nHematite vs Control (3h)",
+    x = "Gene",
+    y = "log2 Fold Change",
+    fill = "Regulation"
+  )
+
+
+top50 <- res_24h_H %>%
+  rownames_to_column("ID_prodigal") %>%
+  arrange(adj.P.Val) %>%
+  head(50) %>%
+  left_join(
+    complete_gene_annotation %>%
+      dplyr::select(ID_prodigal, gene, locus_tag),
+    by = "ID_prodigal"
+  ) %>%
+  mutate(
+    gene_label = ifelse(is.na(gene) | gene == "", ID_prodigal, gene),
+    direction = ifelse(logFC > 0, "Up", "Down")
+  )
+
+top50 <- top50 %>%
+  arrange(logFC) %>%
+  mutate(gene_label = make.unique(gene_label),
+         gene_label = factor(gene_label, levels = gene_label))
+
+ggplot(top50, aes(x = gene_label, y = logFC, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Up" = "red", "Down" = "blue")) +
+  theme_bw() +
+  labs(
+    title = "Top 50 Differentially Expressed Genes\nHematite vs Control (24h)",
+    x = "Gene",
+    y = "log2 Fold Change",
+    fill = "Regulation"
+  )
+
+
+
+top50 <- res_3h_M %>%
+  rownames_to_column("ID_prodigal") %>%
+  arrange(adj.P.Val) %>%
+  head(50) %>%
+  left_join(
+    complete_gene_annotation %>%
+      dplyr::select(ID_prodigal, gene, locus_tag),
+    by = "ID_prodigal"
+  ) %>%
+  mutate(
+    gene_label = ifelse(is.na(gene) | gene == "", ID_prodigal, gene),
+    direction = ifelse(logFC > 0, "Up", "Down")
+  )
+
+top50 <- top50 %>%
+  arrange(logFC) %>%
+  mutate(gene_label = make.unique(gene_label),
+         gene_label = factor(gene_label, levels = gene_label))
+
+ggplot(top50, aes(x = gene_label, y = logFC, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Up" = "red", "Down" = "blue")) +
+  theme_bw() +
+  labs(
+    title = "Top 50 Differentially Expressed Genes\nMica vs Control (3h)",
+    x = "Gene",
+    y = "log2 Fold Change",
+    fill = "Regulation"
+  )
+
+
+
+top50 <- res_24h_M %>%
+  rownames_to_column("ID_prodigal") %>%
+  arrange(adj.P.Val) %>%
+  head(50) %>%
+  left_join(
+    complete_gene_annotation %>%
+      dplyr::select(ID_prodigal, gene, locus_tag),
+    by = "ID_prodigal"
+  ) %>%
+  mutate(
+    gene_label = ifelse(is.na(gene) | gene == "", ID_prodigal, gene),
+    direction = ifelse(logFC > 0, "Up", "Down")
+  )
+
+top50 <- top50 %>%
+  arrange(logFC) %>%
+  mutate(gene_label = make.unique(gene_label),
+         gene_label = factor(gene_label, levels = gene_label))
+
+ggplot(top50, aes(x = gene_label, y = logFC, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Up" = "red", "Down" = "blue")) +
+  theme_bw() +
+  labs(
+    title = "Top 50 Differentially Expressed Genes\nMica vs Control (24h)",
+    x = "Gene",
+    y = "log2 Fold Change",
+    fill = "Regulation"
+  )
+```
+
+```{r notes}
+# Check if the spoII, III etc genes are upregulated in Goe 3h and 24h
+
+# Check which genes are upregulated or downregulated (DE) in all the minerals tested.Is there a basal mineral response?
+
+# Check genes in common between goethite and hematite
+
+# Plots like this paper: https://pure.rug.nl/ws/portalfiles/portal/252468262/s41598_022_21102_w_1_.pdf
+```
+
+
+
+
+
+
+
+
+
+
+
+

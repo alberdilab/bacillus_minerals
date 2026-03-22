@@ -60,7 +60,7 @@ The clustering separates each mineral sample quite good at 3 h, but not that goo
 ```{r hierarchical_clustering, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
 
 distance_mat <- as.dist(1 - cor(logCPM))  # Pearson correlation distance
-hclust_res <- hclust(distance_mat)
+hclust_res <- hclust(distance_mat, method = "complete")
 plot(hclust_res, labels = colnames(logCPM), main = "Hierarchical Clustering (log2 CPM)")
 ```
 
@@ -73,11 +73,15 @@ Distance calculation is the same as the previous one but here with all the metad
 heatmap_metadata <- sample_metadata %>%
   dplyr::select(`Qubit conc ng/uL`, Extraction, timepoint, mineral_code)
 
-sample_dist <- as.dist(1 - cor(logCPM, method = "pearson"))
+sample_dist <- as.matrix(distance_mat)
 
-pheatmap(as.matrix(sample_dist),
+pheatmap(sample_dist,
+         # cluster_rows = hclust_res,
+         # cluster_cols = hclust_res,
          annotation_col = heatmap_metadata,
-         main = "Sample–sample distance heatmap")
+         main = "Sample–sample distance heatmap",
+         clustering_distance_cols = "correlation",
+         clustering_distance_rows = "correlation")
 ```
 
 
@@ -294,7 +298,7 @@ logCPM <- cpm(dge, log = TRUE, prior.count = 1)  # log2(CPM + 1)
 ```{r hierarchical_clustering_wo_drex, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
 
 distance_mat <- as.dist(1 - cor(logCPM))  # Pearson correlation distance
-hclust_res <- hclust(distance_mat)
+hclust_res <- hclust(distance_mat, method = "complete")
 plot(hclust_res, labels = colnames(logCPM), main = "Hierarchical Clustering (log2 CPM)")
 ```
 
@@ -306,11 +310,17 @@ plot(hclust_res, labels = colnames(logCPM), main = "Hierarchical Clustering (log
 heatmap_metadata <- metadata_wo_drex %>%
   dplyr::select(`Qubit conc ng/uL`, Extraction, timepoint, mineral_code)
 
-sample_dist <- as.dist(1 - cor(logCPM, method = "pearson"))
 
-pheatmap(as.matrix(sample_dist),
+sample_dist <- as.matrix(distance_mat)
+
+pheatmap(sample_dist,
+         # cluster_rows = hclust_res,
+         # cluster_cols = hclust_res,
          annotation_col = heatmap_metadata,
-         main = "Sample–sample distance heatmap")
+         main = "Sample–sample distance heatmap",
+         clustering_distance_cols = "correlation",
+         clustering_distance_rows = "correlation")
+
 ```
 
 

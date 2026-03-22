@@ -4,18 +4,18 @@
 
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>AlberdiLab | Carbajo et al. 2026</title>
+  <title>04_gene_enrichment</title>
   <meta name="description" content="&lt;p&gt;Bacillus minerals study&lt;/p&gt;" />
   <meta name="generator" content="bookdown 0.46 and GitBook 2.6.7" />
 
-  <meta property="og:title" content="AlberdiLab | Carbajo et al. 2026" />
+  <meta property="og:title" content="04_gene_enrichment" />
   <meta property="og:type" content="book" />
   
   <meta property="og:description" content="&lt;p&gt;Bacillus minerals study&lt;/p&gt;" />
   <meta name="github-repo" content="alberdilab/bacillus_minerals" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="AlberdiLab | Carbajo et al. 2026" />
+  <meta name="twitter:title" content="04_gene_enrichment" />
   
   <meta name="twitter:description" content="&lt;p&gt;Bacillus minerals study&lt;/p&gt;" />
   
@@ -2070,6 +2070,7 @@ color: #a52929;
 <li class="chapter" data-level="2.3" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-1"><i class="fa fa-check"></i><b>2.3</b> Prepare data</a>
 <ul>
 <li class="chapter" data-level="2.3.1" data-path="prepare-data.html"><a href="prepare-data.html#prepare-data-subsets"><i class="fa fa-check"></i><b>2.3.1</b> Prepare data subsets</a></li>
+<li class="chapter" data-level="2.3.2" data-path="prepare-data.html"><a href="prepare-data.html#prepare-annotation-file"><i class="fa fa-check"></i><b>2.3.2</b> Prepare annotation file</a></li>
 </ul></li>
 </ul></li>
 <li class="chapter" data-level="3" data-path="preliminary-visualizations.html"><a href="preliminary-visualizations.html"><i class="fa fa-check"></i><b>3</b> Preliminary visualizations</a>
@@ -2109,7 +2110,14 @@ color: #a52929;
 <ul>
 <li class="chapter" data-level="4.2.1" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#hours"><i class="fa fa-check"></i><b>4.2.1</b> 3 hours</a></li>
 <li class="chapter" data-level="4.2.2" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#hours-1"><i class="fa fa-check"></i><b>4.2.2</b> 24 hours</a></li>
+<li class="chapter" data-level="4.2.3" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#results-summary"><i class="fa fa-check"></i><b>4.2.3</b> Results summary</a></li>
+<li class="chapter" data-level="4.2.4" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#top-highly-expressed-genes-heatmaps"><i class="fa fa-check"></i><b>4.2.4</b> Top highly expressed genes heatmaps</a></li>
+<li class="chapter" data-level="4.2.5" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#interaction-de---under-construction"><i class="fa fa-check"></i><b>4.2.5</b> Interaction DE - UNDER CONSTRUCTION</a></li>
 </ul></li>
+<li class="chapter" data-level="4.3" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#kegg-enrichment-goethite-3-h-and-24-h"><i class="fa fa-check"></i><b>4.3</b> KEGG enrichment Goethite 3 h and 24 h</a></li>
+<li class="chapter" data-level="4.4" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#kegg-enrichment-hematite-3-h-and-24-h"><i class="fa fa-check"></i><b>4.4</b> KEGG enrichment Hematite 3 h and 24 h</a></li>
+<li class="chapter" data-level="4.5" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#kegg-enrichment-mica-3-h-and-24-h"><i class="fa fa-check"></i><b>4.5</b> KEGG enrichment Mica 3 h and 24 h</a></li>
+<li class="chapter" data-level="4.6" data-path="differential-expression-analysis.html"><a href="differential-expression-analysis.html#under-construction"><i class="fa fa-check"></i><b>4.6</b> Under construction</a></li>
 </ul></li>
 <li class="divider"></li>
 <li><a href="https://www.alberdilab.dk" target="blank"><b>www.alberdilab.dk</b></a></li>
@@ -2125,7 +2133,7 @@ color: #a52929;
       <div class="body-inner">
         <div class="book-header" role="navigation">
           <h1>
-            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">AlberdiLab | Carbajo et al. 2026</a>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">04_gene_enrichment</a>
           </h1>
         </div>
 
@@ -2134,10 +2142,10 @@ color: #a52929;
 
             <section class="normal" id="section-">
 <div id="header">
-<h1 class="title">AlberdiLab | Carbajo et al. 2026</h1>
+<h1 class="title">04_gene_enrichment</h1>
 <h2 class="subtitle"><em>Study in progress</em></h2>
 <p class="author"><em>Carlota Carbajo, Nanna Gaun, Antton Alberdi<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, Karina Sand</em></p>
-<p class="date"><em>Last update: 2026-02-16</em></p>
+<p class="date"><em>Last update: 2026-03-22</em></p>
 </div>
 <div id="introduction" class="section level1 hasAnchor" number="1">
 <h1><span class="header-section-number">Chapter 1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
@@ -2162,7 +2170,7 @@ color: #a52929;
 <span id="cb2-3"><a href="index.html#cb2-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">&quot;BiocManager&quot;</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
 <span id="cb2-4"><a href="index.html#cb2-4" tabindex="-1"></a>    <span class="fu">install.packages</span>(<span class="st">&quot;BiocManager&quot;</span>)</span>
 <span id="cb2-5"><a href="index.html#cb2-5" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="index.html#cb2-6" tabindex="-1"></a>requiredPackages <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&#39;edgeR&#39;</span>,<span class="st">&#39;DESeq2&#39;</span>,<span class="st">&#39;vsn&#39;</span>,<span class="st">&#39;org.Hs.eg.db&#39;</span>, <span class="st">&quot;knitr&quot;</span>, <span class="st">&quot;rtracklayer&quot;</span>)</span>
+<span id="cb2-6"><a href="index.html#cb2-6" tabindex="-1"></a>requiredPackages <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&#39;edgeR&#39;</span>,<span class="st">&#39;DESeq2&#39;</span>,<span class="st">&#39;vsn&#39;</span>, <span class="st">&quot;knitr&quot;</span>, <span class="st">&quot;rtracklayer&quot;</span>, <span class="st">&#39;clusterProfiler&#39;</span>)</span>
 <span id="cb2-7"><a href="index.html#cb2-7" tabindex="-1"></a><span class="cf">for</span> (p <span class="cf">in</span> requiredPackages) {</span>
 <span id="cb2-8"><a href="index.html#cb2-8" tabindex="-1"></a>  <span class="cf">if</span>(p <span class="sc">%in%</span> <span class="fu">rownames</span>(<span class="fu">installed.packages</span>()) <span class="sc">==</span> <span class="cn">FALSE</span>) {BiocManager<span class="sc">::</span><span class="fu">install</span>(p)}</span>
 <span id="cb2-9"><a href="index.html#cb2-9" tabindex="-1"></a>}</span>
@@ -2190,15 +2198,17 @@ color: #a52929;
 <span id="cb3-15"><a href="index.html#cb3-15" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
 <span id="cb3-16"><a href="index.html#cb3-16" tabindex="-1"></a><span class="fu">library</span>(vsn)</span>
 <span id="cb3-17"><a href="index.html#cb3-17" tabindex="-1"></a><span class="fu">library</span>(NMF)</span>
-<span id="cb3-18"><a href="index.html#cb3-18" tabindex="-1"></a><span class="fu">library</span>(org.Hs.eg.db)</span>
-<span id="cb3-19"><a href="index.html#cb3-19" tabindex="-1"></a><span class="fu">library</span>(grDevices)</span>
-<span id="cb3-20"><a href="index.html#cb3-20" tabindex="-1"></a><span class="fu">library</span>(hexbin)</span>
-<span id="cb3-21"><a href="index.html#cb3-21" tabindex="-1"></a><span class="fu">library</span>(statmod)</span>
-<span id="cb3-22"><a href="index.html#cb3-22" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span>
-<span id="cb3-23"><a href="index.html#cb3-23" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
-<span id="cb3-24"><a href="index.html#cb3-24" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
-<span id="cb3-25"><a href="index.html#cb3-25" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
-<span id="cb3-26"><a href="index.html#cb3-26" tabindex="-1"></a><span class="fu">library</span>(limma)</span></code></pre></div>
+<span id="cb3-18"><a href="index.html#cb3-18" tabindex="-1"></a><span class="fu">library</span>(grDevices)</span>
+<span id="cb3-19"><a href="index.html#cb3-19" tabindex="-1"></a><span class="fu">library</span>(hexbin)</span>
+<span id="cb3-20"><a href="index.html#cb3-20" tabindex="-1"></a><span class="fu">library</span>(statmod)</span>
+<span id="cb3-21"><a href="index.html#cb3-21" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span>
+<span id="cb3-22"><a href="index.html#cb3-22" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
+<span id="cb3-23"><a href="index.html#cb3-23" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb3-24"><a href="index.html#cb3-24" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
+<span id="cb3-25"><a href="index.html#cb3-25" tabindex="-1"></a><span class="fu">library</span>(limma)</span>
+<span id="cb3-26"><a href="index.html#cb3-26" tabindex="-1"></a><span class="fu">library</span>(GenomicRanges)</span>
+<span id="cb3-27"><a href="index.html#cb3-27" tabindex="-1"></a><span class="fu">library</span>(rtracklayer)</span>
+<span id="cb3-28"><a href="index.html#cb3-28" tabindex="-1"></a><span class="fu">library</span>(clusterProfiler)</span></code></pre></div>
 
 </div>
 </div>

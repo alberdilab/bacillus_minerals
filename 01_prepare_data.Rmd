@@ -156,7 +156,7 @@ readr::write_tsv(refseq_annotation, "data/refseq_gene_annotation.tsv")
 ```
 
 Load the prepared refseq annotation file and join with the original annotation file
-```{r load_GFF, warning=FALSE, comments="", message=FALSE}
+```{r load_refse, warning=FALSE, comments="", message=FALSE}
 refseq_annotation <- read_tsv("data/refseq_gene_annotation.tsv")
 
 complete_gene_annotation <- gene_annotations %>%

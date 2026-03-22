@@ -11,6 +11,7 @@ get-working-files
 load-data
 prepare-data-1
 prepare-data-subsets
+prepare-annotation-file
 preliminary-visualizations
 filtering-and-normalization
 preliminary-visualizations-1
@@ -36,3 +37,10 @@ custom-plot-functions
 differential-expression-analysis-1
 hours
 hours-1
+results-summary
+top-highly-expressed-genes-heatmaps
+interaction-de---under-construction
+kegg-enrichment-goethite-3-h-and-24-h
+kegg-enrichment-hematite-3-h-and-24-h
+kegg-enrichment-mica-3-h-and-24-h
+under-construction
