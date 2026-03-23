@@ -141,47 +141,105 @@ plot_MA(res_3h_M, title = "MA: Mica vs Control (3h)", fdr = 0.05, lfc = 1)
 
 ```
 
-```{r heatmap_top_genes_3h_DE, warning=FALSE, comments="", message=FALSE}
+```{r heatmap_top_genes_3h_DE, warning=FALSE, comments="", message=FALSE, fig.width=8, fig.height=8}
+gene_map <- complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, gene, locus_tag)
+
+# For genes that dont have a name
+gene_map <- complete_gene_annotation %>%
+  dplyr::mutate(gene_label = ifelse(is.na(gene), locus_tag, gene)) %>%
+  dplyr::select(ID_prodigal, gene_label)
+
 
 
 # Top 30 DE genes in Goethite vs Control
-top_genes <- rownames(res_3h_G %>% arrange(adj.P.Val) %>% head(30))
+top_genes <- res_3h_G %>%
+  arrange(adj.P.Val) %>%
+  head(30) %>%
+  rownames()
 
 matG <- v_3h$E[top_genes, ]  # log2-CPM from voom
+
+# Replace rownames with gene names
+new_names <- gene_map$gene_label[match(top_genes, gene_map$ID_prodigal)]
+# Replace NA with original gene IDs
+new_names[is.na(new_names)] <- top_genes[is.na(new_names)]
+
+rownames(matG) <- new_names
+
+
 annotation <- meta_3h[, "mineral_code", drop = FALSE]
 rownames(annotation) <- rownames(meta_3h)
-pheatmap(matG,
-         annotation_col = annotation,
-         scale = "row",
-         clustering_distance_rows = "correlation",
-         clustering_distance_cols = "correlation",
-         main = "Top 30 DE genes: Goethite vs Control (3h)")
+
+
+pheatmap(
+  matG,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "Top 30 DE genes: Goethite vs Control (3h)"
+)
+
 
 # Top 30 DE genes in Hematite vs Control
-top_genes <- rownames(res_3h_H %>% arrange(adj.P.Val) %>% head(30))
+top_genes <- res_3h_H %>%
+  arrange(adj.P.Val) %>%
+  head(30) %>%
+  rownames()
 
 matH <- v_3h$E[top_genes, ]  # log2-CPM from voom
+
+# Replace rownames with gene names
+new_names <- gene_map$gene_label[match(top_genes, gene_map$ID_prodigal)]
+# Replace NA with original gene IDs
+new_names[is.na(new_names)] <- top_genes[is.na(new_names)]
+
+rownames(matH) <- new_names
+
+
+
 annotation <- meta_3h[, "mineral_code", drop = FALSE]
 rownames(annotation) <- rownames(meta_3h)
-pheatmap(matH,
-         annotation_col = annotation,
-         scale = "row",
-         clustering_distance_rows = "correlation",
-         clustering_distance_cols = "correlation",
-         main = "Top 30 DE genes: Hematite vs Control (3h)")
+
+
+pheatmap(
+  matH,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "Top 30 DE genes: Hematite vs Control (3h)"
+)
 
 # Top 30 DE genes in Mica vs Control
-top_genes <- rownames(res_3h_M %>% arrange(adj.P.Val) %>% head(30))
+top_genes <- res_3h_M %>%
+  arrange(adj.P.Val) %>%
+  head(30) %>%
+  rownames()
 
 matM <- v_3h$E[top_genes, ]  # log2-CPM from voom
+
+# Replace rownames with gene names
+new_names <- gene_map$gene_label[match(top_genes, gene_map$ID_prodigal)]
+# Replace NA with original gene IDs
+new_names[is.na(new_names)] <- top_genes[is.na(new_names)]
+
+rownames(matM) <- new_names
+
+
+
 annotation <- meta_3h[, "mineral_code", drop = FALSE]
 rownames(annotation) <- rownames(meta_3h)
-pheatmap(matM,
-         annotation_col = annotation,
-         scale = "row",
-         clustering_distance_rows = "correlation",
-         clustering_distance_cols = "correlation",
-         main = "Top 30 DE genes: Mica vs Control (3h)")
+
+pheatmap(
+  matM,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "Top 30 DE genes: Mica vs Control (3h)"
+)
 
 
 
@@ -240,51 +298,246 @@ plot_MA(res_24h_M, title = "MA plot: Mica vs Control (24h)", fdr = 0.05, lfc = 1
 
 
 ```
-```{r heatmap_top_genes_24h_DE, warning=FALSE, comments="", message=FALSE}
-
+```{r heatmap_top_genes_24h_DE, warning=FALSE, comments="", message=FALSE, fig.width=8, fig.height=8}
 
 # Top 30 DE genes in Goethite vs Control
-top_genes <- rownames(res_24h_G %>% arrange(adj.P.Val) %>% head(30))
+top_genes <- res_24h_G %>%
+  arrange(adj.P.Val) %>%
+  head(30) %>%
+  rownames()
 
 matG <- v_24h$E[top_genes, ]  # log2-CPM from voom
+
+# Replace rownames with gene names
+new_names <- gene_map$gene_label[match(top_genes, gene_map$ID_prodigal)]
+# Replace NA with original gene IDs
+new_names[is.na(new_names)] <- top_genes[is.na(new_names)]
+
+rownames(matG) <- new_names
+
+
 annotation <- meta_24h[, "mineral_code", drop = FALSE]
 rownames(annotation) <- rownames(meta_24h)
-pheatmap(matG,
-         annotation_col = annotation,
-         scale = "row",
-         clustering_distance_rows = "correlation",
-         clustering_distance_cols = "correlation",
-         main = "Top 30 DE genes: Goethite vs Control (24h)")
+
+
+pheatmap(
+  matG,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "Top 30 DE genes: Goethite vs Control (24h)"
+)
+
 
 # Top 30 DE genes in Hematite vs Control
-top_genes <- rownames(res_24h_H %>% arrange(adj.P.Val) %>% head(30))
+top_genes <- res_24h_H %>%
+  arrange(adj.P.Val) %>%
+  head(30) %>%
+  rownames()
 
 matH <- v_24h$E[top_genes, ]  # log2-CPM from voom
+
+# Replace rownames with gene names
+new_names <- gene_map$gene_label[match(top_genes, gene_map$ID_prodigal)]
+# Replace NA with original gene IDs
+new_names[is.na(new_names)] <- top_genes[is.na(new_names)]
+
+rownames(matH) <- new_names
+
+
+
 annotation <- meta_24h[, "mineral_code", drop = FALSE]
 rownames(annotation) <- rownames(meta_24h)
-pheatmap(matH,
-         annotation_col = annotation,
-         scale = "row",
-         clustering_distance_rows = "correlation",
-         clustering_distance_cols = "correlation",
-         main = "Top 30 DE genes: Hematite vs Control (24h)")
+
+
+pheatmap(
+  matH,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "Top 30 DE genes: Hematite vs Control (24h)"
+)
 
 # Top 30 DE genes in Mica vs Control
-top_genes <- rownames(res_24h_M %>% arrange(adj.P.Val) %>% head(30))
+top_genes <- res_24h_M %>%
+  arrange(adj.P.Val) %>%
+  head(30) %>%
+  rownames()
 
 matM <- v_24h$E[top_genes, ]  # log2-CPM from voom
+
+# Replace rownames with gene names
+new_names <- gene_map$gene_label[match(top_genes, gene_map$ID_prodigal)]
+# Replace NA with original gene IDs
+new_names[is.na(new_names)] <- top_genes[is.na(new_names)]
+
+rownames(matM) <- new_names
+
+
+
 annotation <- meta_24h[, "mineral_code", drop = FALSE]
 rownames(annotation) <- rownames(meta_24h)
-pheatmap(matM,
-         annotation_col = annotation,
-         scale = "row",
-         clustering_distance_rows = "correlation",
-         clustering_distance_cols = "correlation",
-         main = "Top 30 DE genes: Mica vs Control (24h)")
+
+pheatmap(
+  matM,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "Top 30 DE genes: Mica vs Control (24h)"
+)
+
+
 
 
 
 ```
+
+### Results summary
+
+```{r results_summary_func, warning=FALSE, comments="", message=FALSE}
+summarise_contrast <- function(res, name) {
+  data.frame(
+    contrast = name,
+    
+    # High fold change (strict)
+    high_up = sum(res$logFC >= 4.5 & res$adj.P.Val <= 0.01, na.rm = TRUE),
+    high_down = sum(res$logFC <= -4.5 & res$adj.P.Val <= 0.01, na.rm = TRUE),
+    
+    # Top hits
+    top_up = sum(res$logFC >= 2 & res$adj.P.Val <= 0.05, na.rm = TRUE),
+    top_down = sum(res$logFC <= -2 & res$adj.P.Val <= 0.05, na.rm = TRUE),
+    
+    # Total DE
+    total_up = sum(res$logFC > 0 & res$adj.P.Val <= 0.05, na.rm = TRUE),
+    total_down = sum(res$logFC < 0 & res$adj.P.Val <= 0.05, na.rm = TRUE)
+  )
+}
+```
+
+```{r results_summary, warning=FALSE, comments="", message=FALSE}
+DE_summary_table <- dplyr::bind_rows(
+  summarise_contrast(res_3h_G, "3h Goethite vs Control"),
+  summarise_contrast(res_3h_H, "3h Hematite vs Control"),
+  summarise_contrast(res_3h_M, "3h Mica vs Control"),
+  summarise_contrast(res_24h_G, "24h Goethite vs Control"),
+  summarise_contrast(res_24h_H, "24h Hematite vs Control"),
+  summarise_contrast(res_24h_M, "24h Mica vs Control")
+  
+)
+
+DE_summary_table
+```
+
+### Top highly expressed genes heatmaps
+
+```{r top_highly_heatmaps, fig.width=8, fig.height=8}
+
+# Goethite vs Control 3h
+high_up_genes   <- res_3h_G %>% filter(logFC >= 4.5 & adj.P.Val <= 0.01) %>% rownames()
+high_down_genes <- res_3h_G %>% filter(logFC <= -4.5 & adj.P.Val <= 0.01) %>% rownames()
+
+high_genes <- c(high_up_genes, high_down_genes)
+
+# subset the expression matrix
+matG_high <- v_3h$E[high_genes, ]
+
+# replace rownames with gene names where available
+gene_map <- complete_gene_annotation %>%
+  mutate(gene_label = ifelse(is.na(gene), locus_tag, gene)) %>%
+  select(ID_prodigal, gene_label)
+
+new_names <- gene_map$gene_label[match(high_genes, gene_map$ID_prodigal)]
+new_names[is.na(new_names)] <- high_genes[is.na(new_names)]
+
+rownames(matG_high) <- new_names
+
+# column annotation
+annotation <- meta_3h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_3h)
+
+
+pheatmap(
+  matG_high,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "High DE genes: Goethite vs Control (3h)"
+)
+
+
+
+# Goethite vs Control 24h
+high_up_genes   <- res_24h_G %>% filter(logFC >= 4.5 & adj.P.Val <= 0.01) %>% rownames()
+high_down_genes <- res_24h_G %>% filter(logFC <= -4.5 & adj.P.Val <= 0.01) %>% rownames()
+
+high_genes <- c(high_up_genes, high_down_genes)
+
+# subset the expression matrix
+matG_high <- v_24h$E[high_genes, ]
+
+# replace rownames with gene names where available
+gene_map <- complete_gene_annotation %>%
+  mutate(gene_label = ifelse(is.na(gene), locus_tag, gene)) %>%
+  select(ID_prodigal, gene_label)
+
+new_names <- gene_map$gene_label[match(high_genes, gene_map$ID_prodigal)]
+new_names[is.na(new_names)] <- high_genes[is.na(new_names)]
+
+rownames(matG_high) <- new_names
+
+# column annotation
+annotation <- meta_24h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_24h)
+
+pheatmap(
+  matG_high,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "High DE genes: Goethite vs Control (24h)"
+)
+
+
+
+# Mica vs Control 24h
+high_up_genes   <- res_24h_M %>% filter(logFC >= 4.5 & adj.P.Val <= 0.01) %>% rownames()
+high_down_genes <- res_24h_M %>% filter(logFC <= -4.5 & adj.P.Val <= 0.01) %>% rownames()
+
+high_genes <- c(high_up_genes, high_down_genes)
+
+# subset the expression matrix
+matM_high <- v_24h$E[high_genes, ]
+
+# replace rownames with gene names where available
+gene_map <- complete_gene_annotation %>%
+  mutate(gene_label = ifelse(is.na(gene), locus_tag, gene)) %>%
+  select(ID_prodigal, gene_label)
+
+new_names <- gene_map$gene_label[match(high_genes, gene_map$ID_prodigal)]
+new_names[is.na(new_names)] <- high_genes[is.na(new_names)]
+
+rownames(matM_high) <- new_names
+
+# column annotation
+annotation <- meta_24h[, "mineral_code", drop = FALSE]
+rownames(annotation) <- rownames(meta_24h)
+
+pheatmap(
+  matM_high,
+  annotation_col = annotation,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  main = "High DE genes: Mica vs Control (24h)"
+)
+```
+
+
 ### Interaction DE - UNDER CONSTRUCTION
 
 ```{r interaction_DE, warning=FALSE, comments="", message=FALSE}

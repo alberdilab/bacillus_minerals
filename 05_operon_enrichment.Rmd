@@ -1,0 +1,772 @@
+---
+title: "05_operon_enrichment"
+output: html_document
+---
+
+## Operons investigation
+
+### Data preparation
+
+```{r, message=FALSE}
+# Read annotation files
+gff <- import("data/BSGatlas_v1.1.gff")
+```
+
+
+```{r}
+# Extract operons
+operons <- gff[mcols(gff)$type == "operon"]
+
+operon_df <- as.data.frame(mcols(operons)) %>%
+  dplyr::select(ID, Name)
+
+genes <- gff[mcols(gff)$type == "gene"]
+
+gene_operon_map <- as.data.frame(mcols(genes)) %>%
+  mutate(
+    locus_tag = sapply(locus_tag, function(x) {
+      if (length(x) == 0) return(NA_character_)
+      paste(x, collapse = ";")
+    }),
+    gene_name = sapply(Name, function(x) {
+      if (length(x) == 0) return(NA_character_)
+      paste(x, collapse = ";")
+    }),
+    Parent = sapply(Parent, function(x) {
+      if (length(x) == 0) return(NA_character_)
+      x[1]
+    })
+  ) %>%
+  tidyr::separate_rows(locus_tag, sep = ";") %>%
+  filter(!is.na(locus_tag)) %>%
+  select(ID, locus_tag, gene_name, Parent)
+
+gene_positions <- tibble(
+  ID = mcols(genes)$ID,
+  start = start(genes),
+  strand = as.character(strand(genes))
+)
+
+gene_operon_map <- gene_operon_map %>%
+  left_join(gene_positions, by = "ID")
+
+gene_operon_map <- gene_operon_map %>%
+  group_by(Parent) %>%
+  arrange(
+    if_else(strand == "+", start, -start),
+    .by_group = TRUE
+  ) %>%
+  ungroup()
+
+operon_names <- gene_operon_map %>%
+  group_by(Parent) %>%
+  summarise(
+    operon_name = {
+      g <- gene_name[!is.na(gene_name) & gene_name != ""]
+      n <- min(3, length(g))
+      if (length(g) == 0) {
+        NA_character_
+      } else {
+        paste0(
+          paste(g[1:n], collapse = "-"),
+          ifelse(length(g) > 3, "-etc", ""),
+          " operon"
+        )
+      }
+    },
+    .groups = "drop"
+  )
+
+gene_operon_map <- gene_operon_map %>%
+  left_join(operon_names, by = "Parent")
+
+
+operon_mapping <- complete_gene_annotation %>%
+  dplyr::select(ID_prodigal, locus_tag) %>%
+  left_join(gene_operon_map, by = "locus_tag")
+
+# > # How many genes got operons?
+# > sum(!is.na(operon_mapping$Parent))
+# [1] 6214
+# > 
+# > # How many failed?
+# > sum(is.na(operon_mapping$Parent))
+# [1] 849
+```
+
+### Goethite
+
+```{r}
+
+############ Goethite 3 h
+# Add operon info to DE results
+res_operon <- res_3h_G %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon$Parent))  # How many DE genes are in operons
+
+operon_summary <- res_operon %>%
+  filter(adj.P.Val < 0.05) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons <- res_operon %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+top_operons <- head(de_operons$Parent, 10)
+
+top_operon_genes <- res_operon %>%
+  filter(adj.P.Val < 0.05, Parent %in% top_operons) %>%
+  mutate(direction = ifelse(logFC > 0, "up", "down"))
+
+# Aggregate up/down counts
+top_operon_summary <- top_operon_genes %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  mutate(n_DE = ifelse(direction == "down", -n_DE, n_DE))  # negative for down
+
+ggplot(top_operon_summary, aes(x = reorder(operon_name, n_DE), y = n_DE, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("up" = "red", "down" = "blue")) +
+  labs(x = "Operon", y = "Number of DE genes", title = "Top 10 operons with most DE genes - Goethite 3h") +
+  theme_minimal()
+
+############# Goethite 24 h
+# Add operon info to DE results
+res_operon <- res_24h_G %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon$Parent))  # How many DE genes are in operons
+
+operon_summary <- res_operon %>%
+  filter(adj.P.Val < 0.05) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons <- res_operon %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+top_operons <- head(de_operons$Parent, 10)
+
+top_operon_genes <- res_operon %>%
+  filter(adj.P.Val < 0.05, Parent %in% top_operons) %>%
+  mutate(direction = ifelse(logFC > 0, "up", "down"))
+
+# Aggregate up/down counts
+top_operon_summary <- top_operon_genes %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  mutate(n_DE = ifelse(direction == "down", -n_DE, n_DE))  # negative for down
+
+ggplot(top_operon_summary, aes(x = reorder(operon_name, n_DE), y = n_DE, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("up" = "red", "down" = "blue")) +
+  labs(x = "Operon", y = "Number of DE genes", title = "Top 10 operons with most DE genes - Goethite 24h") +
+  theme_minimal()
+```
+
+### Hematite
+
+```{r}
+############ Hematite 3 h
+# Add operon info to DE results
+res_operon <- res_3h_H %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon$Parent))  # How many DE genes are in operons
+
+operon_summary <- res_operon %>%
+  filter(adj.P.Val < 0.05) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons <- res_operon %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+top_operons <- head(de_operons$Parent, 10)
+
+top_operon_genes <- res_operon %>%
+  filter(adj.P.Val < 0.05, Parent %in% top_operons) %>%
+  mutate(direction = ifelse(logFC > 0, "up", "down"))
+
+# Aggregate up/down counts
+top_operon_summary <- top_operon_genes %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  mutate(n_DE = ifelse(direction == "down", -n_DE, n_DE))  # negative for down
+
+ggplot(top_operon_summary, aes(x = reorder(operon_name, n_DE), y = n_DE, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("up" = "red", "down" = "blue")) +
+  labs(x = "Operon", y = "Number of DE genes", title = "Top 10 operons with most DE genes - Hemaite 3h") +
+  theme_minimal()
+
+############# Hematite 24 h
+# Add operon info to DE results
+res_operon <- res_24h_H %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon$Parent))  # How many DE genes are in operons
+
+operon_summary <- res_operon %>%
+  filter(adj.P.Val < 0.05) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons <- res_operon %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+top_operons <- head(de_operons$Parent, 10)
+
+top_operon_genes <- res_operon %>%
+  filter(adj.P.Val < 0.05, Parent %in% top_operons) %>%
+  mutate(direction = ifelse(logFC > 0, "up", "down"))
+
+# Aggregate up/down counts
+top_operon_summary <- top_operon_genes %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  mutate(n_DE = ifelse(direction == "down", -n_DE, n_DE))  # negative for down
+
+ggplot(top_operon_summary, aes(x = reorder(operon_name, n_DE), y = n_DE, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("up" = "red", "down" = "blue")) +
+  labs(x = "Operon", y = "Number of DE genes", title = "Top 10 operons with most DE genes - Hematite 24h") +
+  theme_minimal()
+```
+
+### Mica
+
+```{r}
+############ Mica 3 h
+# Add operon info to DE results
+res_operon <- res_3h_M %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon$Parent))  # How many DE genes are in operons
+
+operon_summary <- res_operon %>%
+  filter(adj.P.Val < 0.05) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons <- res_operon %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+top_operons <- head(de_operons$Parent, 10)
+
+top_operon_genes <- res_operon %>%
+  filter(adj.P.Val < 0.05, Parent %in% top_operons) %>%
+  mutate(direction = ifelse(logFC > 0, "up", "down"))
+
+# Aggregate up/down counts
+top_operon_summary <- top_operon_genes %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  mutate(n_DE = ifelse(direction == "down", -n_DE, n_DE))  # negative for down
+
+ggplot(top_operon_summary, aes(x = reorder(operon_name, n_DE), y = n_DE, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("up" = "red", "down" = "blue")) +
+  labs(x = "Operon", y = "Number of DE genes", title = "Top 10 operons with most DE genes - Mica 3h") +
+  theme_minimal()
+
+############# Mica 24 h
+# Add operon info to DE results
+res_operon <- res_24h_M %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon$Parent))  # How many DE genes are in operons
+
+operon_summary <- res_operon %>%
+  filter(adj.P.Val < 0.05) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons <- res_operon %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+top_operons <- head(de_operons$Parent, 10)
+
+top_operon_genes <- res_operon %>%
+  filter(adj.P.Val < 0.05, Parent %in% top_operons) %>%
+  mutate(direction = ifelse(logFC > 0, "up", "down"))
+
+# Aggregate up/down counts
+top_operon_summary <- top_operon_genes %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  mutate(n_DE = ifelse(direction == "down", -n_DE, n_DE))  # negative for down
+
+ggplot(top_operon_summary, aes(x = reorder(operon_name, n_DE), y = n_DE, fill = direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("up" = "red", "down" = "blue")) +
+  labs(x = "Operon", y = "Number of DE genes", title = "Top 10 operons with most DE genes - Mica 24h") +
+  theme_minimal()
+```
+
+
+### Overlaps 3h
+
+
+```{r}
+get_DE_genes <- function(res) {
+  res %>%
+    rownames_to_column("ID_prodigal") %>%
+    filter(adj.P.Val < 0.05) %>%
+    pull(ID_prodigal)
+}
+
+de_G <- get_DE_genes(res_3h_G)
+de_H <- get_DE_genes(res_3h_H)
+de_M <- get_DE_genes(res_3h_M)
+
+
+intersect_GH <- intersect(de_G, de_H)
+intersect_GM <- intersect(de_G, de_M)
+intersect_HM <- intersect(de_H, de_M)
+
+intersect_all <- Reduce(intersect, list(de_G, de_H, de_M))
+```
+
+```{r}
+library(UpSetR)
+
+listInput <- list(G = de_G, H = de_H, M = de_M)
+upset(fromList(listInput))
+```
+
+```{r}
+get_directional_genes <- function(res, padj_cutoff = 0.05, lfc_cutoff = 0) {
+  res_tbl <- res %>%
+    rownames_to_column("ID_prodigal")
+  
+  up_genes <- res_tbl %>%
+    filter(adj.P.Val < padj_cutoff, logFC > lfc_cutoff) %>%
+    pull(ID_prodigal)
+  
+  down_genes <- res_tbl %>%
+    filter(adj.P.Val < padj_cutoff, logFC < -lfc_cutoff) %>%
+    pull(ID_prodigal)
+  
+  list(
+    up = unique(up_genes),
+    down = unique(down_genes)
+  )
+}
+
+dir_G <- get_directional_genes(res_3h_G)
+dir_H <- get_directional_genes(res_3h_H)
+dir_M <- get_directional_genes(res_3h_M)
+
+up_list <- list(
+  G = dir_G$up,
+  H = dir_H$up,
+  M = dir_M$up
+)
+
+down_list <- list(
+  G = dir_G$down,
+  H = dir_H$down,
+  M = dir_M$down
+)
+
+
+up_input <- fromList(up_list)
+down_input <- fromList(down_list)
+
+upset(
+  up_input,
+  sets = c("G", "H", "M"),
+  order.by = "freq",
+  main.bar.color = "firebrick",
+  sets.bar.color = c("#E1AD01","#800020", "#B8B8B8"),
+  mainbar.y.label = "Shared upregulated genes",
+  sets.x.label = "Upregulated genes per condition"
+)
+
+upset(
+  down_input,
+  sets = c("G", "H", "M"),
+  order.by = "freq",
+  main.bar.color = "navy",
+  sets.bar.color = c("#E1AD01","#800020", "#B8B8B8"),
+  mainbar.y.label = "Shared downregulated genes",
+  sets.x.label = "Downregulated genes per condition"
+)
+
+
+```
+
+```{r}
+
+annotate_with_operons <- function(res, complete_gene_annotation, gene_operon_map, condition_name) {
+  res %>%
+    rownames_to_column("ID_prodigal") %>%
+    left_join(
+      complete_gene_annotation %>% select(ID_prodigal, locus_tag),
+      by = "ID_prodigal"
+    ) %>%
+    left_join(
+      gene_operon_map %>% select(locus_tag, gene_name, Parent, operon_name),
+      by = "locus_tag"
+    ) %>%
+    mutate(condition = condition_name)
+}
+
+res_G_operon <- annotate_with_operons(res_3h_G, complete_gene_annotation, gene_operon_map, "G")
+res_H_operon <- annotate_with_operons(res_3h_H, complete_gene_annotation, gene_operon_map, "H")
+res_M_operon <- annotate_with_operons(res_3h_M, complete_gene_annotation, gene_operon_map, "M")
+
+all_operon_res <- bind_rows(res_G_operon, res_H_operon, res_M_operon) %>%
+  mutate(
+    direction = case_when(
+      adj.P.Val < 0.05 & logFC > 0 ~ "up",
+      adj.P.Val < 0.05 & logFC < 0 ~ "down",
+      TRUE ~ "not_DE"
+    )
+  )
+
+operon_condition_summary <- all_operon_res %>%
+  filter(!is.na(Parent)) %>%
+  group_by(Parent, operon_name, condition) %>%
+  summarise(
+    n_genes = n(),
+    n_up = sum(direction == "up"),
+    n_down = sum(direction == "down"),
+    mean_logFC = mean(logFC, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    operon_state = case_when(
+      n_up >= 2 & n_down == 0   ~ "up",
+      n_down >= 2 & n_up == 0   ~ "down",
+      TRUE ~ "mixed_or_notDE"
+    )
+  )
+
+operon_wide <- operon_condition_summary %>%
+  select(Parent, operon_name, condition, operon_state, n_up, n_down, mean_logFC) %>%
+  pivot_wider(
+    names_from = condition,
+    values_from = c(operon_state, n_up, n_down, mean_logFC)
+  )
+
+operons_up_all <- operon_wide %>%
+  filter(
+    operon_state_G == "up",
+    operon_state_H == "up",
+    operon_state_M == "up"
+  )
+
+operons_down_all <- operon_wide %>%
+  filter(
+    operon_state_G == "down",
+    operon_state_H == "down",
+    operon_state_M == "down"
+  )
+```
+
+```{r}
+
+heatmap_df <- operon_condition_summary %>%
+  filter(Parent %in% operons_up_all$Parent | Parent %in% operons_down_all$Parent)
+
+ggplot(heatmap_df, aes(x = condition, y = operon_name, fill = mean_logFC)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  theme_minimal() +
+  labs(x = "Condition", y = "Operon", fill = "Mean logFC")
+```
+```{r}
+operon_condition_summary <- all_operon_res %>%
+  filter(!is.na(Parent)) %>%
+  group_by(Parent, operon_name, condition) %>%
+  summarise(
+    n_genes = n(),
+    n_up = sum(direction == "up"),
+    n_down = sum(direction == "down"),
+    n_DE = sum(direction %in% c("up", "down")),
+    mean_logFC = mean(logFC, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+top_variable_operons <- operon_condition_summary %>%
+  group_by(Parent, operon_name) %>%
+  summarise(
+    logFC_range = max(mean_logFC, na.rm = TRUE) - min(mean_logFC, na.rm = TRUE),
+    has_pos = any(mean_logFC > 0, na.rm = TRUE),
+    has_neg = any(mean_logFC < 0, na.rm = TRUE),
+    n_conditions_DE = sum(n_DE > 0),
+    .groups = "drop"
+  ) %>%
+  filter(n_conditions_DE >= 2, has_pos, has_neg) %>%
+  arrange(desc(logFC_range)) %>%
+  slice_head(n = 20)
+
+heatmap_df_top <- operon_condition_summary %>%
+  semi_join(top_variable_operons, by = c("Parent", "operon_name"))
+
+operon_order <- heatmap_df_top %>%
+  select(Parent, operon_name, condition, mean_logFC) %>%
+  pivot_wider(names_from = condition, values_from = mean_logFC) %>%
+  arrange(G, H, M) %>%
+  pull(operon_name)
+
+heatmap_df_top <- heatmap_df_top %>%
+  mutate(operon_name = factor(operon_name, levels = operon_order))
+
+ggplot(heatmap_df_top, aes(x = condition, y = operon_name, fill = mean_logFC)) +
+  geom_tile(color = "grey85") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  theme_minimal() +
+  labs(
+    x = "Condition",
+    y = "Operon",
+    fill = "Mean logFC",
+    title = "Top variable operons across conditions"
+  )
+```
+### Overlap 24 h
+
+```{r}
+# de_G <- get_DE_genes(res_24h_G)
+# de_H <- get_DE_genes(res_24h_H)
+# de_M <- get_DE_genes(res_24h_M)
+# 
+# 
+# intersect_GH <- intersect(de_G, de_H)
+# intersect_GM <- intersect(de_G, de_M)
+# intersect_HM <- intersect(de_H, de_M)
+# 
+# intersect_all <- Reduce(intersect, list(de_G, de_H, de_M))
+
+
+dir_G <- get_directional_genes(res_24h_G)
+dir_H <- get_directional_genes(res_24h_H)
+dir_M <- get_directional_genes(res_24h_M)
+
+up_list <- list(
+  G = dir_G$up,
+  H = dir_H$up,
+  M = dir_M$up
+)
+
+down_list <- list(
+  G = dir_G$down,
+  H = dir_H$down,
+  M = dir_M$down
+)
+
+
+up_input <- fromList(up_list)
+down_input <- fromList(down_list)
+
+upset(
+  up_input,
+  sets = c("G", "H", "M"),
+  order.by = "freq",
+  main.bar.color = "firebrick",
+  sets.bar.color = c("#E1AD01","#800020", "#B8B8B8"),
+  mainbar.y.label = "Shared upregulated genes",
+  sets.x.label = "Upregulated genes per condition"
+)
+
+upset(
+  down_input,
+  sets = c("G", "H", "M"),
+  order.by = "freq",
+  main.bar.color = "navy",
+  sets.bar.color = c("#E1AD01","#800020", "#B8B8B8"),
+  mainbar.y.label = "Shared downregulated genes",
+  sets.x.label = "Downregulated genes per condition"
+)
+
+
+
+res_G_operon <- annotate_with_operons(res_24h_G, complete_gene_annotation, gene_operon_map, "G")
+res_H_operon <- annotate_with_operons(res_24h_H, complete_gene_annotation, gene_operon_map, "H")
+res_M_operon <- annotate_with_operons(res_24h_M, complete_gene_annotation, gene_operon_map, "M")
+
+all_operon_res <- bind_rows(res_G_operon, res_H_operon, res_M_operon) %>%
+  mutate(
+    direction = case_when(
+      adj.P.Val < 0.05 & logFC > 0 ~ "up",
+      adj.P.Val < 0.05 & logFC < 0 ~ "down",
+      TRUE ~ "not_DE"
+    )
+  )
+
+operon_condition_summary <- all_operon_res %>%
+  filter(!is.na(Parent)) %>%
+  group_by(Parent, operon_name, condition) %>%
+  summarise(
+    n_genes = n(),
+    n_up = sum(direction == "up"),
+    n_down = sum(direction == "down"),
+    mean_logFC = mean(logFC, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    operon_state = case_when(
+      n_up >= 2 & n_down == 0   ~ "up",
+      n_down >= 2 & n_up == 0   ~ "down",
+      TRUE ~ "mixed_or_notDE"
+    )
+  )
+
+operon_wide <- operon_condition_summary %>%
+  select(Parent, operon_name, condition, operon_state, n_up, n_down, mean_logFC) %>%
+  pivot_wider(
+    names_from = condition,
+    values_from = c(operon_state, n_up, n_down, mean_logFC)
+  )
+
+operons_up_all <- operon_wide %>%
+  filter(
+    operon_state_G == "up",
+    operon_state_H == "up",
+    operon_state_M == "up"
+  )
+
+operons_down_all <- operon_wide %>%
+  filter(
+    operon_state_G == "down",
+    operon_state_H == "down",
+    operon_state_M == "down"
+  )
+
+
+heatmap_df <- operon_condition_summary %>%
+  filter(Parent %in% operons_up_all$Parent | Parent %in% operons_down_all$Parent)
+
+ggplot(heatmap_df, aes(x = condition, y = operon_name, fill = mean_logFC)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  theme_minimal() +
+  labs(x = "Condition", y = "Operon", fill = "Mean logFC")
+
+
+
+operon_condition_summary <- all_operon_res %>%
+  filter(!is.na(Parent)) %>%
+  group_by(Parent, operon_name, condition) %>%
+  summarise(
+    n_genes = n(),
+    n_up = sum(direction == "up"),
+    n_down = sum(direction == "down"),
+    n_DE = sum(direction %in% c("up", "down")),
+    mean_logFC = mean(logFC, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+top_variable_operons <- operon_condition_summary %>%
+  group_by(Parent, operon_name) %>%
+  summarise(
+    logFC_range = max(mean_logFC, na.rm = TRUE) - min(mean_logFC, na.rm = TRUE),
+    has_pos = any(mean_logFC > 0, na.rm = TRUE),
+    has_neg = any(mean_logFC < 0, na.rm = TRUE),
+    n_conditions_DE = sum(n_DE > 0),
+    .groups = "drop"
+  ) %>%
+  filter(n_conditions_DE >= 2, has_pos, has_neg) %>%
+  arrange(desc(logFC_range)) %>%
+  slice_head(n = 20)
+
+heatmap_df_top <- operon_condition_summary %>%
+  semi_join(top_variable_operons, by = c("Parent", "operon_name"))
+
+operon_order <- heatmap_df_top %>%
+  select(Parent, operon_name, condition, mean_logFC) %>%
+  pivot_wider(names_from = condition, values_from = mean_logFC) %>%
+  arrange(G, H, M) %>%
+  pull(operon_name)
+
+heatmap_df_top <- heatmap_df_top %>%
+  mutate(operon_name = factor(operon_name, levels = operon_order))
+
+ggplot(heatmap_df_top, aes(x = condition, y = operon_name, fill = mean_logFC)) +
+  geom_tile(color = "grey85") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  theme_minimal() +
+  labs(
+    x = "Condition",
+    y = "Operon",
+    fill = "Mean logFC",
+    title = "Top variable operons across conditions"
+  )
+```
+
+
+```{r}
+logFC_df <- res_3h_G %>%
+  rownames_to_column("ID_prodigal") %>%
+  select(ID_prodigal, logFC_G = logFC) %>%
+  left_join(
+    res_3h_H %>%
+      rownames_to_column("ID_prodigal") %>%
+      select(ID_prodigal, logFC_H = logFC),
+    by = "ID_prodigal"
+  )
+
+
+ggplot(logFC_df, aes(x = logFC_G, y = logFC_H)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal()
+```
+
