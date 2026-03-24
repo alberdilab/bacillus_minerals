@@ -58,12 +58,57 @@ gene_operon_map <- gene_operon_map %>%
   ) %>%
   ungroup()
 
+gene_operon_map <- gene_operon_map %>%
+  filter(grepl("_", locus_tag))
+
+gene_operon_map <- gene_operon_map %>%
+  mutate(locus_tag = toupper(locus_tag)) %>%
+  distinct(ID, locus_tag, .keep_all = TRUE)
+
+gene_operon_map <- gene_operon_map %>%
+  mutate(
+    locus_priority = case_when(
+      grepl("^NEW_", locus_tag) ~ 2L,
+      TRUE ~ 1L
+    )
+  ) %>%
+  group_by(ID) %>%
+  arrange(locus_priority, locus_tag, .by_group = TRUE) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(-locus_priority)
+
+# operon_names <- gene_operon_map %>%
+#   group_by(Parent) %>%
+#   summarise(
+#     operon_name = {
+#       g <- gene_name[!is.na(gene_name) & gene_name != ""]
+#       n <- min(3, length(g))
+#       if (length(g) == 0) {
+#         NA_character_
+#       } else {
+#         paste0(
+#           paste(g[1:n], collapse = "-"),
+#           ifelse(length(g) > 3, "-etc", ""),
+#           " operon"
+#         )
+#       }
+#     },
+#     .groups = "drop"
+#   )
+
 operon_names <- gene_operon_map %>%
   group_by(Parent) %>%
+  arrange(
+    if_else(strand == "+", start, -start),
+    .by_group = TRUE
+  ) %>%
   summarise(
     operon_name = {
       g <- gene_name[!is.na(gene_name) & gene_name != ""]
+      g <- g[!duplicated(g)]  # optional but recommended
       n <- min(3, length(g))
+      
       if (length(g) == 0) {
         NA_character_
       } else {
@@ -750,6 +795,203 @@ ggplot(heatmap_df_top, aes(x = condition, y = operon_name, fill = mean_logFC)) +
     title = "Top variable operons across conditions"
   )
 ```
+
+```{r}
+
+### Goethite
+# Add operon info to DE results
+res_operon_3h_G <- res_3h_G %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon_3h_G$Parent))  # How many DE genes are in operons
+
+operon_summary_3h_G <- res_operon_3h_G %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons_3h_G <- res_operon_3h_G %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+### Hematite
+# Add operon info to DE results
+res_operon_3h_H <- res_3h_H %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon_3h_H$Parent))  # How many DE genes are in operons
+
+operon_summary_3h_H <- res_operon_3h_H %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons_3h_H <- res_operon_3h_H %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+
+### Mica
+# Add operon info to DE results
+res_operon_3h_M <- res_3h_M %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon_3h_M$Parent))  # How many DE genes are in operons
+
+operon_summary_3h_M <- res_operon_3h_M %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons_3h_M <- res_operon_3h_M %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+```
+```{r}
+### Goethite
+# Add operon info to DE results
+res_operon_24h_G <- res_24h_G %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon_24h_G$Parent))  # How many DE genes are in operons
+
+operon_summary_24h_G <- res_operon_24h_G %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons_24h_G <- res_operon_24h_G %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+### Hematite
+# Add operon info to DE results
+res_operon_24h_H <- res_24h_H %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon_24h_H$Parent))  # How many DE genes are in operons
+
+operon_summary_24h_H <- res_operon_24h_H %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons_24h_H <- res_operon_24h_H %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+
+
+### Mica
+# Add operon info to DE results
+res_operon_24h_M <- res_24h_M %>%
+  rownames_to_column(var = "ID_prodigal") %>%
+  left_join(operon_mapping, by = "ID_prodigal")
+
+table(!is.na(res_operon_24h_M$Parent))  # How many DE genes are in operons
+
+operon_summary_24h_M <- res_operon_24h_M %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%           # DE genes
+  mutate(direction = ifelse(logFC > 0, "up", "down")) %>%
+  group_by(Parent, operon_name, direction) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n_DE, values_fill = 0)
+
+# Only DE genes
+# Filter DE genes that have operon assigned
+de_operons_24h_M <- res_operon_24h_M %>%
+  filter(adj.P.Val < 0.05, !is.na(Parent)) %>%
+  group_by(Parent) %>%
+  summarise(n_DE = n(), .groups = "drop") %>%
+  arrange(desc(n_DE))
+```
+
+```{r}
+
+name <- "mtl"
+
+operon_summary_3h_G %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_24h_G %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_3h_H %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_24h_H %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_3h_M %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_24h_M %>%
+  filter(grepl(name, operon_name))
+```
+
+```{r}
+operon_summary_3h_H %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_24h_H %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_3h_M %>%
+  filter(grepl(name, operon_name))
+
+operon_summary_24h_M %>%
+  filter(grepl(name, operon_name))
+```
+```{r}
+operon_names %>%
+  filter(grepl("lep", operon_name))
+
+gene_operon_map %>%
+  filter(Parent == "BSGatlas-operon-1922")
+
+gene_operon_map %>%
+  filter(grepl("cggR", gene_name))
+
+# gene_operon_map %>%
+#   filter(ID == "BSGatlas-gene-1048") %>%
+#   select(ID, locus_tag, gene_name, start, strand)
+```
+
+
 
 
 ```{r}
