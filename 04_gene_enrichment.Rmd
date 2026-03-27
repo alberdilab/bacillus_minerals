@@ -3,6 +3,8 @@ title: "04_gene_enrichment"
 output: html_document
 ---
 
+# Gene enrichment analysis
+
 ```{r read_extra_annotation, warning=FALSE, comments="", message=FALSE}
 # Read annotation files
 anno_metadata <- read_delim("data/go-anno.bsub_test.tsv", col_names = FALSE)
@@ -11,8 +13,6 @@ colnames(anno_metadata) <- c("name", "locus_tag")
 go_anno <- read_delim("data/go-anno.bsub.tsv", col_names = FALSE)
 colnames(go_anno) <- c("name", "go_id", "description")
 
-kegg_anno <- read_delim("data/kegg_pathways-anno.bsub.tsv", col_names = FALSE)
-colnames(kegg_anno) <- c("name", "ko_id", "keggdesc")
 
 
 # Prepare TERM2GENE and TERM2NAM
@@ -43,7 +43,7 @@ res <- res_3h_G %>%
   dplyr::select(logFC, adj.P.Val) %>%
   rownames_to_column(var = "ID_prodigal") %>%
   left_join(complete_gene_annotation %>%
-  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+  dplyr::select(ID_prodigal, bsg_id, locus_tag), by = "ID_prodigal")
 
 res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
 
@@ -227,7 +227,7 @@ res <- res_24h_G %>%
   dplyr::select(logFC, adj.P.Val) %>%
   rownames_to_column(var = "ID_prodigal") %>%
   left_join(complete_gene_annotation %>%
-  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+  dplyr::select(ID_prodigal, bsg_id, locus_tag), by = "ID_prodigal")
 
 res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
 
@@ -411,7 +411,7 @@ res <- res_3h_H %>%
   dplyr::select(logFC, adj.P.Val) %>%
   rownames_to_column(var = "ID_prodigal") %>%
   left_join(complete_gene_annotation %>%
-  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+  dplyr::select(ID_prodigal, bsg_id, locus_tag), by = "ID_prodigal")
 
 res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
 
@@ -595,7 +595,7 @@ res <- res_24h_H %>%
   dplyr::select(logFC, adj.P.Val) %>%
   rownames_to_column(var = "ID_prodigal") %>%
   left_join(complete_gene_annotation %>%
-  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+  dplyr::select(ID_prodigal, bsg_id, locus_tag), by = "ID_prodigal")
 
 res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
 
@@ -782,7 +782,7 @@ res <- res_3h_M %>%
   dplyr::select(logFC, adj.P.Val) %>%
   rownames_to_column(var = "ID_prodigal") %>%
   left_join(complete_gene_annotation %>%
-  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+  dplyr::select(ID_prodigal, bsg_id, locus_tag), by = "ID_prodigal")
 
 res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
 
@@ -968,7 +968,7 @@ res <- res_24h_M %>%
   dplyr::select(logFC, adj.P.Val) %>%
   rownames_to_column(var = "ID_prodigal") %>%
   left_join(complete_gene_annotation %>%
-  dplyr::select(ID_prodigal, GeneID, locus_tag), by = "ID_prodigal")
+  dplyr::select(ID_prodigal, bsg_id, locus_tag), by = "ID_prodigal")
 
 res$locus_tag_fixed <- gsub("_", "", res$locus_tag)
 

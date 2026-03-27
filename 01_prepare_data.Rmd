@@ -121,17 +121,125 @@ metadata_wo_drex <- sample_metadata %>%
 
 The annotation file provided was produced using Prodigal and lacks information that will be required later in the analysis like gene names, locus tags and Entrez IDs (required to run kegga() from limma package).
 
-To add the missing information the RefSeq GFF file for B.subtilis str 168 was downloaded from [NCBI](https://www.ncbi.nlm.nih.gov/datasets/taxonomy/224308/)
+To add the missing information the BSGatlas GFF file for B.subtilis str 168 was downloaded from [BSGatlas](https://rth.dk/resources/bsgatlas/download.php)
 
-```{r load_GFF, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r prepare_bsg_annotation, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+# Use this if you want to use BSGatlas.gff annotation
+
+# Load GFF
+gff_bsg <- import("data/BSGatlas_v1.1.gff")
+
+# Keep only gene features
+genes_bsg <- gff_bsg[mcols(gff_bsg)$type == "gene"]
+
+
+get_first <- function(x) {
+  sapply(x, function(v) {
+    if (length(v) == 0) NA_character_ else as.character(v[1])
+  })
+}
+
+get_last <- function(x) {
+  sapply(x, function(v) {
+    if (length(v) == 0) NA_character_ else as.character(v[length(v)])
+  })
+}
+
+bsg_annotation <- tibble(
+  seqnames = as.character(seqnames(genes_bsg)),
+  start = start(genes_bsg),
+  end = end(genes_bsg),
+  strand = as.character(strand(genes_bsg)),
+  bsg_id = mcols(genes_bsg)$ID,
+  gene = get_last(mcols(genes_bsg)$Name),
+  locus_tag = toupper(get_first(mcols(genes_bsg)$locus_tag)),
+  operon_id = get_first(mcols(genes_bsg)$Parent)
+)
+
+# Cleaning of bad locus tag names
+bsg_annotation <- bsg_annotation %>%
+  mutate(
+    locus_priority = case_when(
+      grepl("^NEW_", locus_tag) ~ 2L,
+      TRUE ~ 1L
+    )
+  ) %>%
+  group_by(bsg_id) %>%
+  arrange(locus_priority, locus_tag, .by_group = TRUE) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(-locus_priority)
+
+
+readr::write_tsv(bsg_annotation, "data/bsg_gene_annotation.tsv")
+```
+
+
+```{r load_bsg_gff, warning=FALSE, comments="", message=FALSE}
+# Load the prepared refseq annotation file and join with the original annotation file
+bsg_annotation <- read_tsv("data/bsg_gene_annotation.tsv")
+
+complete_gene_annotation <- gene_annotations %>%
+  dplyr::rename(ID_prodigal = gene) %>%
+  left_join(bsg_annotation,
+            by = c("start", "end", "strand"))
+```
+
+
+```{r consistency_evalutaion, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+# Here I check if the two gff files are consistent, they differ in the gene name of 572 entries and the locus_tag of 3
+# I decided to work with the BSG atlas gff as it is more refined for the B. subtilis, the species of interest in this work.
+
+gff_refseq <- import("data/genomic_RefSeq.gff")
+gff_bsg <- import("data/BSGatlas_v1.1.gff")
+
+genes_refseq <- gff_refseq[mcols(gff_refseq)$type == "gene"]
+genes_bsg <- gff_bsg[mcols(gff_bsg)$type == "gene"]
+
+get_first <- function(x) {
+  sapply(x, function(v) {
+    if (length(v) == 0) NA_character_ else as.character(v[1])
+  })
+}
+
+get_last <- function(x) {
+  sapply(x, function(v) {
+    if (length(v) == 0) NA_character_ else as.character(v[length(v)])
+  })
+}
+
+df_refseq <- tibble(
+  start = start(genes_refseq),
+  end = end(genes_refseq),
+  strand = as.character(strand(genes_refseq)),
+  gene_name_refseq = get_last(mcols(genes_refseq)$Name),
+  locus_tag_refseq = toupper(get_first(mcols(genes_refseq)$locus_tag))
+)
+
+df_bsg <- tibble(
+  start = start(genes_bsg),
+  end = end(genes_bsg),
+  strand = as.character(strand(genes_bsg)),
+  gene_name_bsg = get_last(mcols(genes_bsg)$Name),
+  locus_tag_bsg = toupper(get_first(mcols(genes_bsg)$locus_tag)),
+  bsg_id = mcols(genes_bsg)$ID
+)
+
+conversion_table <- df_bsg %>%
+  inner_join(df_refseq, by = c("start", "end", "strand"))
+
+```
+
+```{r prepare_refseq_annotation, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+# Use this if you want to use RefSeq.gff annotation
+# RefSeq GFF file for B.subtilis str 168 can be downloaded from [NCBI](https://www.ncbi.nlm.nih.gov/datasets/taxonomy/224308/)
+
 # Load GFF
 gff_file <- "data/genomic_RefSeq.gff"
 gff <- rtracklayer::import(gff_file)
 
 gene_gff <- gff[gff$type == "gene"]
-```
 
-```{r prepare_refseq_annotation, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 gene_df <- as.data.frame(gene_gff)
 
 # Dbxref is a CharacterList
@@ -153,10 +261,8 @@ refseq_annotation <- gene_df %>%
   )
 
 readr::write_tsv(refseq_annotation, "data/refseq_gene_annotation.tsv")
-```
 
-Load the prepared refseq annotation file and join with the original annotation file
-```{r load_refse, warning=FALSE, comments="", message=FALSE}
+# Load the prepared refseq annotation file and join with the original annotation file
 refseq_annotation <- read_tsv("data/refseq_gene_annotation.tsv")
 
 complete_gene_annotation <- gene_annotations %>%
